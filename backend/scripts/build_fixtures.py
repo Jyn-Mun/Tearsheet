@@ -22,7 +22,7 @@ import random
 from datetime import date, timedelta
 from pathlib import Path
 
-OUT = Path(__file__).resolve().parents[1] / "app" / "providers" / "fixtures"
+OUT = Path(__file__).resolve().parents[1] / "tests" / "fixtures"  # engineered set for tests/eval
 OUT.mkdir(parents=True, exist_ok=True)
 
 START = date(2024, 6, 5)

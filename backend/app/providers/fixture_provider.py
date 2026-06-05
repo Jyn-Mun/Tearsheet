@@ -13,18 +13,23 @@ from pathlib import Path
 from app.models.schemas import CompanyPayload, CompanyProfile, PriceData
 from app.providers.base import DataProvider
 
-_FIX_DIR = Path(__file__).resolve().parent / "fixtures"
+# App fixtures = the deploy snapshot set (real data baked by scripts/snapshot.py).
+# Tests/eval use a separate dir of engineered fixtures so snapshots can't break them.
+_DEFAULT_DIR = Path(__file__).resolve().parent / "fixtures"
 
 
 class FixtureProvider(DataProvider):
     name = "fixture (recorded sample)"
 
+    def __init__(self, fixtures_dir: Path | None = None) -> None:
+        self._dir = fixtures_dir or _DEFAULT_DIR
+
     def available(self) -> list[str]:
-        return sorted(p.stem for p in _FIX_DIR.glob("*.json"))
+        return sorted(p.stem for p in self._dir.glob("*.json"))
 
     def retrieve(self, ticker: str) -> CompanyPayload:
         ticker = ticker.upper().strip()
-        path = _FIX_DIR / f"{ticker}.json"
+        path = self._dir / f"{ticker}.json"
         if not path.exists():
             return CompanyPayload(
                 ticker=ticker,

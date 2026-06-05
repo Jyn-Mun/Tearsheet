@@ -62,10 +62,13 @@ def _reverse_dcf(payload: CompanyPayload) -> dict:
     }
 
 
-def build_interpretation(payload: CompanyPayload) -> dict:
+def build_interpretation(payload: CompanyPayload, provider=None) -> dict:
+    if provider is None:
+        from app.providers import get_provider
+        provider = get_provider()
     price = payload.price.current
     dcf = build_dcf(payload)
-    val = build_valuation(payload, _provider_for(payload))
+    val = build_valuation(payload, provider)
     reverse = _reverse_dcf(payload)
 
     per_signal: dict[str, dict] = {}
@@ -190,10 +193,3 @@ def _integrated_read(per_signal: dict, coherence: str, reverse: dict) -> tuple[s
     )
     key = "Whether the gap is a macro/rate repricing (price, not value) or a genuine change in the cash-flow outlook (value)."
     return read, key
-
-
-def _provider_for(payload: CompanyPayload):
-    # Valuation needs a provider to fetch peers; reuse the configured one.
-    from app.providers import get_provider
-
-    return get_provider()

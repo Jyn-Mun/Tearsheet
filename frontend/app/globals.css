@@ -91,6 +91,19 @@ html, body {
   text-transform: uppercase;
 }
 .search:focus { border-color: var(--accent); }
+/* live/offline segmented toggle */
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--border); margin-bottom: 8px; }
+.seg button {
+  background: var(--bg); color: var(--text-muted); border: none; padding: 7px 0;
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
+}
+.seg button.on { background: var(--panel); color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+.seg button:hover:not(.on) { color: var(--text); }
+.databadge { font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; }
+.databadge.live { color: var(--up); }
+.databadge.snapshot { color: var(--accent); }
+.databadge.neutral { color: var(--text-muted); }
+
 .recent { list-style: none; margin: 0; padding: 0; }
 .recent li {
   font-family: var(--mono);

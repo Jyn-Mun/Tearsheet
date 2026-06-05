@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from app.providers import get_provider
+from app.deps import provider_dep
+from app.providers import DataProvider
 
 router = APIRouter(tags=["company"])
 
 
 @router.get("/company/{ticker}")
-def company(ticker: str) -> dict:
-    payload = get_provider().retrieve(ticker)
+def company(ticker: str, provider: DataProvider = Depends(provider_dep)) -> dict:
+    payload = provider.retrieve(ticker)
     return {
         "ticker": payload.ticker,
         "as_of": payload.as_of,

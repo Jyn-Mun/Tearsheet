@@ -49,7 +49,9 @@ from app.services.guards import find_advice_terms, missing_falsifiers  # noqa: E
 from app.services.interpretation_service import build_interpretation  # noqa: E402
 from app.services.move_service import build_move  # noqa: E402
 
-PROVIDER = FixtureProvider()
+# Eval runs against the engineered test fixtures (deterministic worked examples),
+# independent of the app's deploy-snapshot fixtures.
+PROVIDER = FixtureProvider(ROOT / "backend" / "tests" / "fixtures")
 TESTSET = json.loads((ROOT / "eval" / "testset.json").read_text())
 EXPECTED_DOMAINS = set(TESTSET["expected_source_domains"])
 
@@ -267,7 +269,7 @@ def case_interpret_conflict(case):
     # make recent momentum negative
     for i, pt in enumerate(p.price.history[-22:]):
         pt.close = p.price.history[-22].close * (1 - 0.002 * i)
-    it = build_interpretation(p)
+    it = build_interpretation(p, PROVIDER)
     T.attrib_total += 1
     if it["coherence"] == "conflicting":
         T.attrib_pass += 1
@@ -281,7 +283,7 @@ def case_no_advice(case):
     outputs = {
         "analysis": build_analysis(p),
         "events": build_events(p),
-        "interpret": build_interpretation(p),
+        "interpret": build_interpretation(p, PROVIDER),
         "move": build_move(p, PROVIDER, target_date="2026-06-05"),
     }
     for name, out in outputs.items():

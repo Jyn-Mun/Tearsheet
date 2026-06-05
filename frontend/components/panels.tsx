@@ -1,6 +1,6 @@
 "use client";
 
-import { api } from "@/lib/api";
+import { api, type Mode } from "@/lib/api";
 import {
   bigMoney, deltaClass, money, mult, num, pct, pctPlain, shortDate, NA,
 } from "@/lib/format";
@@ -17,15 +17,18 @@ function srcLink(url?: string | null) {
 }
 
 function sampleBanner(source?: string) {
+  if (source && source.includes("snapshot")) {
+    return <div className="banner">⊙ Recorded SNAPSHOT (real data, point-in-time) — switch to Live for current figures.</div>;
+  }
   if (source && source.includes("fixture")) {
-    return <div className="banner">⚠ Recorded SAMPLE data (synthetic) — Yahoo unavailable here. Not live market data.</div>;
+    return <div className="banner">⚠ Synthetic SAMPLE data — not live market data.</div>;
   }
   return null;
 }
 
 /* ------------------------------------------------- Overview */
-export function Overview({ ticker, index }: { ticker: string; index: number }) {
-  const q = useEndpoint(["company", ticker], () => api.company(ticker));
+export function Overview({ ticker, index, mode }: { ticker: string; index: number; mode: Mode }) {
+  const q = useEndpoint(["company", ticker, mode], () => api.company(ticker, mode));
   return (
     <Module title="Overview" index={index} right={q.data ? <span className="muted">{q.data.source}</span> : null}>
       {q.isLoading && <Loading />}
@@ -95,8 +98,8 @@ function Metric({ k, v }: { k: string; v: string }) {
 }
 
 /* ------------------------------------------------- Financials */
-export function Financials({ ticker, index }: { ticker: string; index: number }) {
-  const q = useEndpoint(["financials", ticker], () => api.financials(ticker));
+export function Financials({ ticker, index, mode }: { ticker: string; index: number; mode: Mode }) {
+  const q = useEndpoint(["financials", ticker, mode], () => api.financials(ticker, mode));
   return (
     <Module title="Financials" index={index} right={q.data ? <span className="muted">EDGAR-ready · {q.data.currency ?? ""}</span> : null}>
       {q.isLoading && <Loading />}
@@ -136,8 +139,8 @@ function StmtTable({ title, table }: { title: string; table: any }) {
 }
 
 /* ------------------------------------------------- Valuation */
-export function Valuation({ ticker, index }: { ticker: string; index: number }) {
-  const q = useEndpoint(["valuation", ticker], () => api.valuation(ticker));
+export function Valuation({ ticker, index, mode }: { ticker: string; index: number; mode: Mode }) {
+  const q = useEndpoint(["valuation", ticker, mode], () => api.valuation(ticker, mode));
   return (
     <Module title="Valuation" index={index}>
       {q.isLoading && <Loading />}
@@ -190,8 +193,8 @@ function ValuationBody({ d }: { d: any }) {
 }
 
 /* ------------------------------------------------- DCF */
-export function Dcf({ ticker, index }: { ticker: string; index: number }) {
-  const q = useEndpoint(["dcf", ticker], () => api.dcf(ticker));
+export function Dcf({ ticker, index, mode }: { ticker: string; index: number; mode: Mode }) {
+  const q = useEndpoint(["dcf", ticker, mode], () => api.dcf(ticker, mode));
   return (
     <Module title="DCF Model" index={index}>
       {q.isLoading && <Loading />}
@@ -280,8 +283,8 @@ function Sensitivity({ sens, price }: { sens: any; price: number }) {
 }
 
 /* ------------------------------------------------- Analysis */
-export function Analysis({ ticker, index }: { ticker: string; index: number }) {
-  const q = useEndpoint(["analysis", ticker], () => api.analysis(ticker));
+export function Analysis({ ticker, index, mode }: { ticker: string; index: number; mode: Mode }) {
+  const q = useEndpoint(["analysis", ticker, mode], () => api.analysis(ticker, mode));
   return (
     <Module title="Analysis — AI thesis" index={index}
       right={q.data ? <span className="muted">{q.data.analysis.synthesizer}</span> : null}>
@@ -330,8 +333,8 @@ function Point({ p }: { p: any }) {
 }
 
 /* ------------------------------------------------- Events */
-export function Events({ ticker, index }: { ticker: string; index: number }) {
-  const q = useEndpoint(["events", ticker], () => api.events(ticker));
+export function Events({ ticker, index, mode }: { ticker: string; index: number; mode: Mode }) {
+  const q = useEndpoint(["events", ticker, mode], () => api.events(ticker, mode));
   return (
     <Module title="Behaviour & Events" index={index}>
       {q.isLoading && <Loading />}
@@ -373,8 +376,8 @@ function EventsBody({ d }: { d: any }) {
 }
 
 /* ------------------------------------------------- Interpretation */
-export function Interpretation({ ticker, index }: { ticker: string; index: number }) {
-  const q = useEndpoint(["interpret", ticker], () => api.interpret(ticker));
+export function Interpretation({ ticker, index, mode }: { ticker: string; index: number; mode: Mode }) {
+  const q = useEndpoint(["interpret", ticker, mode], () => api.interpret(ticker, mode));
   return (
     <Module title="Interpretation — what it means" index={index}
       right={q.data ? <span className={`pill ${q.data.coherence === "conflicting" ? "warn" : "good"}`}>{q.data.coherence}</span> : null}>
@@ -414,8 +417,8 @@ function InterpretBody({ d }: { d: any }) {
 }
 
 /* ------------------------------------------------- Move explanation */
-export function MoveExplain({ ticker, index }: { ticker: string; index: number }) {
-  const q = useEndpoint(["move", ticker], () => api.explainMove(ticker));
+export function MoveExplain({ ticker, index, mode }: { ticker: string; index: number; mode: Mode }) {
+  const q = useEndpoint(["move", ticker, mode], () => api.explainMove(ticker, mode));
   return (
     <Module title="Why did it move?" index={index}>
       {q.isLoading && <Loading />}
@@ -470,8 +473,8 @@ function MoveBody({ d }: { d: any }) {
 }
 
 /* ------------------------------------------------- News */
-export function News({ ticker, index }: { ticker: string; index: number }) {
-  const q = useEndpoint(["news", ticker], () => api.news(ticker));
+export function News({ ticker, index, mode }: { ticker: string; index: number; mode: Mode }) {
+  const q = useEndpoint(["news", ticker, mode], () => api.news(ticker, mode));
   return (
     <Module title="News" index={index}
       right={q.data?.summary ? <span className={`pill ${q.data.summary.sentiment === "positive" ? "good" : q.data.summary.sentiment === "negative" ? "bad" : ""}`}>{q.data.summary.sentiment}</span> : null}>
