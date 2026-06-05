@@ -1,10 +1,16 @@
-# Pinned for reproducibility. Phase 0 = web framework only;
-# data/LLM/eval deps are added in their respective phases.
+# Pinned for reproducibility.
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
 pydantic==2.10.4
 pydantic-settings==2.7.0
 httpx==0.28.1
+
+# Data layer (free sources)
+yfinance==0.2.51
+numpy==2.2.1
+
+# LLM synthesis (optional at runtime; behind a Synthesizer interface with a mock default)
+anthropic==0.42.0
 
 # Dev / test
 pytest==8.3.4

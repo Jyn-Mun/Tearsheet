@@ -10,7 +10,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routes import health
+from app.routes import (
+    analysis,
+    company,
+    dcf,
+    events,
+    financials,
+    health,
+    interpret,
+)
 
 app = FastAPI(title=settings.app_name, version=settings.app_version)
 
@@ -23,6 +31,12 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
+app.include_router(company.router)
+app.include_router(financials.router)
+app.include_router(dcf.router)
+app.include_router(analysis.router)
+app.include_router(events.router)
+app.include_router(interpret.router)
 
 
 @app.get("/", tags=["meta"])
