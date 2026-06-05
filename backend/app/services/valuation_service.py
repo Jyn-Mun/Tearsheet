@@ -118,7 +118,7 @@ def _build_peers(payload: CompanyPayload, provider: DataProvider, sector: str | 
             "ps": p.key_metrics.ps,
             "pb": p.key_metrics.pb,
         })
-        if len(rows) >= 6:
+        if len(rows) >= 4:  # cap peers (each peer is a full retrieve; keeps API usage modest)
             break
 
     # Sort by market-cap proximity to the subject when available.

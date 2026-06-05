@@ -23,7 +23,7 @@ class Settings(BaseSettings):
 
     # Financial Modeling Prep (free key works from any network; yfinance is IP-blocked in some envs).
     fmp_api_key: str | None = None
-    fmp_base_url: str = "https://financialmodelingprep.com/api/v3"
+    fmp_base_url: str = "https://financialmodelingprep.com/stable"
 
     # If a live fetch returns essentially nothing (e.g. Yahoo rate-limit) AND this is true,
     # fall back to a fixture for the same ticker when one exists — clearly labelled as sample.
