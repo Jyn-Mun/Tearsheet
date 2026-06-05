@@ -1,0 +1,10 @@
+# Netlify config for the Tearsheet frontend (Next.js) in this monorepo.
+# Set NEXT_PUBLIC_API_BASE (your Render backend URL) in Netlify's env vars.
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = ".next"
+
+# Netlify auto-installs the Next.js runtime; pin it explicitly for reproducibility.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

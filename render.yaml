@@ -1,0 +1,19 @@
+# Render Blueprint for the Tearsheet backend (FastAPI).
+# Render → New → Blueprint → point at this repo. Set FMP_API_KEY + CORS_ORIGINS in the dashboard.
+services:
+  - type: web
+    name: tearsheet-api
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATA_PROVIDER
+        value: fmp            # or "fixture" for a pure-snapshot public site
+      - key: FMP_API_KEY
+        sync: false           # set in the Render dashboard (secret)
+      - key: CORS_ORIGINS
+        sync: false           # set to your Netlify/Vercel URL
+      - key: ANTHROPIC_API_KEY
+        sync: false           # optional
