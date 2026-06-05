@@ -12,9 +12,21 @@ from app.models.schemas import CompanyPayload
 from app.providers.base import DataProvider
 
 _INDEX = "SPY"
+# Sector → representative SPDR sector ETF (FMP/Yahoo sector names). SMH kept for the offline
+# semis fixture; the XL** family covers real sectors for live providers.
 _SECTOR_ETF = {
-    "Technology": "SMH",  # semis proxy in fixtures; real run can map sector→ETF
+    "Technology": "XLK",
     "Semiconductors": "SMH",
+    "Financial Services": "XLF",
+    "Healthcare": "XLV",
+    "Consumer Cyclical": "XLY",
+    "Consumer Defensive": "XLP",
+    "Energy": "XLE",
+    "Industrials": "XLI",
+    "Basic Materials": "XLB",
+    "Communication Services": "XLC",
+    "Utilities": "XLU",
+    "Real Estate": "XLRE",
 }
 
 
@@ -82,7 +94,8 @@ def build_move(payload: CompanyPayload, provider: DataProvider, target_date: str
                 "reason": "no price move available for that date", "warnings": payload.warnings}
 
     index = provider.retrieve(_INDEX)
-    sector_tkr = _SECTOR_ETF.get(payload.profile.sector or "") or _SECTOR_ETF.get(payload.profile.industry or "")
+    # Prefer an industry-specific ETF (e.g. Semiconductors→SMH) before the broad sector ETF.
+    sector_tkr = _SECTOR_ETF.get(payload.profile.industry or "") or _SECTOR_ETF.get(payload.profile.sector or "")
     sector = provider.retrieve(sector_tkr) if sector_tkr else None
 
     # Beta of stock vs index over the aligned history.

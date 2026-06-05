@@ -17,8 +17,13 @@ class Settings(BaseSettings):
     app_name: str = "Tearsheet"
     app_version: str = "1.0.0"
 
-    # Data source: "free" = live yfinance (default), "fixture" = recorded sample data (offline).
+    # Data source: "free" = live yfinance, "fmp" = Financial Modeling Prep (live, key),
+    # "fixture" = recorded sample data (offline).
     data_provider: str = "free"
+
+    # Financial Modeling Prep (free key works from any network; yfinance is IP-blocked in some envs).
+    fmp_api_key: str | None = None
+    fmp_base_url: str = "https://financialmodelingprep.com/api/v3"
 
     # If a live fetch returns essentially nothing (e.g. Yahoo rate-limit) AND this is true,
     # fall back to a fixture for the same ticker when one exists — clearly labelled as sample.

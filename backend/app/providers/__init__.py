@@ -12,6 +12,7 @@ from app.config import settings
 from app.models.schemas import CompanyPayload
 from app.providers.base import DataProvider
 from app.providers.fixture_provider import FixtureProvider
+from app.providers.fmp_provider import FMPProvider
 from app.providers.free_provider import FreeProvider
 
 
@@ -52,6 +53,8 @@ def get_provider() -> DataProvider:
     if _PROVIDER is None:
         if settings.data_provider == "fixture":
             _PROVIDER = FixtureProvider()
+        elif settings.data_provider == "fmp":
+            _PROVIDER = FMPProvider()
         else:
             _PROVIDER = FreeWithFixtureFallback()
     return _PROVIDER

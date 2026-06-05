@@ -36,6 +36,21 @@ export function Overview({ ticker, index }: { ticker: string; index: number }) {
 }
 function OverviewBody({ d }: { d: any }) {
   const p = d.price, km = d.key_metrics, prof = d.profile;
+  const empty = !prof.name && p.current === null && (!d.sparkline || d.sparkline.length === 0);
+  if (empty) {
+    return (
+      <div className="errbox" style={{ color: "var(--text-muted)" }}>
+        <div style={{ color: "var(--accent)", marginBottom: 6 }}>No data for {d.ticker}.</div>
+        {(d.warnings ?? []).map((w: string, i: number) => (
+          <div key={i} style={{ fontSize: 12, marginBottom: 4 }}>{w}</div>
+        ))}
+        <div style={{ fontSize: 12, marginTop: 8 }}>
+          This instance is running on offline <strong>sample</strong> data (live market data is
+          unavailable here). Try a sample ticker above.
+        </div>
+      </div>
+    );
+  }
   return (
     <>
       {sampleBanner(d.source)}
