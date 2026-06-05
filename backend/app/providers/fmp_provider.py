@@ -108,6 +108,52 @@ class FMPProvider(DataProvider):
             cache.set(f"fmp:{ticker}", payload.model_dump())
         return payload
 
+    # --- lightweight fetches (save API calls vs a full retrieve) ---
+
+    def peer_snapshot(self, ticker: str) -> dict:
+        ticker = ticker.upper().strip()
+        if not self._key:
+            return {"ticker": ticker, "name": None, "market_cap": None,
+                    "pe_ttm": None, "ev_ebitda": None, "ps": None, "pb": None}
+        cached = cache.get(f"fmp:peer:{ticker}", _CACHE_TTL)
+        if cached is not None:
+            return cached
+        q = self._row("quote", symbol=ticker)        # name, marketCap
+        r = self._row("ratios-ttm", symbol=ticker)   # pe, ps, pb
+        k = self._row("key-metrics-ttm", symbol=ticker)  # ev/ebitda
+        snap = {
+            "ticker": ticker,
+            "name": _first(q, "name"),
+            "market_cap": _f(_first(q, "marketCap")),
+            "pe_ttm": _f(_first(r, "priceToEarningsRatioTTM")),
+            "ev_ebitda": _f(_first(k, "evToEBITDATTM")),
+            "ps": _f(_first(r, "priceToSalesRatioTTM")),
+            "pb": _f(_first(r, "priceToBookRatioTTM")),
+        }
+        if snap["name"] or snap["market_cap"]:
+            cache.set(f"fmp:peer:{ticker}", snap)
+        return snap
+
+    def price_history(self, ticker: str) -> list[PricePoint]:
+        ticker = ticker.upper().strip()
+        if not self._key:
+            return []
+        cached = cache.get(f"fmp:hist:{ticker}", _CACHE_TTL)
+        if cached is not None:
+            return [PricePoint(**p) for p in cached]
+        hist = self._get("historical-price-eod/full", symbol=ticker, limit=504)
+        pts: list[PricePoint] = []
+        if isinstance(hist, list):
+            for row in reversed(hist):
+                c = _f(row.get("close"))
+                d = row.get("date")
+                if c is not None and d:
+                    pts.append(PricePoint(date=d[:10], close=c))
+            pts = pts[-756:]
+        if pts:
+            cache.set(f"fmp:hist:{ticker}", [p.model_dump() for p in pts])
+        return pts
+
     def _build(self, payload: CompanyPayload, ticker: str) -> None:
         prov = Provenance(
             source=self.name,

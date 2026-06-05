@@ -93,24 +93,25 @@ def build_move(payload: CompanyPayload, provider: DataProvider, target_date: str
         return {"ticker": payload.ticker, "available": False,
                 "reason": "no price move available for that date", "warnings": payload.warnings}
 
-    index = provider.retrieve(_INDEX)
+    # Lightweight price-only fetches for the index/sector ETFs (cheap on metered APIs).
+    index_hist = provider.price_history(_INDEX)
     # Prefer an industry-specific ETF (e.g. Semiconductors→SMH) before the broad sector ETF.
     sector_tkr = _SECTOR_ETF.get(payload.profile.industry or "") or _SECTOR_ETF.get(payload.profile.sector or "")
-    sector = provider.retrieve(sector_tkr) if sector_tkr else None
+    sector_hist = provider.price_history(sector_tkr) if sector_tkr else []
+    idx_dates = [p.date for p in index_hist]
+    idx_closes = [p.close for p in index_hist]
 
     # Beta of stock vs index over the aligned history.
-    s_r, m_r = _aligned_returns(dates, closes, [p.date for p in index.price.history],
-                                [p.close for p in index.price.history])
+    s_r, m_r = _aligned_returns(dates, closes, idx_dates, idx_closes)
     beta = _beta(s_r, m_r) or (payload.price.beta or 1.0)
 
-    idx_date, index_ret = _return_on([p.date for p in index.price.history],
-                                     [p.close for p in index.price.history], move_date)
+    idx_date, index_ret = _return_on(idx_dates, idx_closes, move_date)
     market_component = beta * index_ret if index_ret is not None else None
 
     sector_component = None
-    if sector is not None:
-        _, sector_ret = _return_on([p.date for p in sector.price.history],
-                                   [p.close for p in sector.price.history], move_date)
+    if sector_hist:
+        _, sector_ret = _return_on([p.date for p in sector_hist],
+                                   [p.close for p in sector_hist], move_date)
         if sector_ret is not None and index_ret is not None:
             # sector's own idiosyncratic part beyond the market (approx, sector beta ~1)
             sector_component = sector_ret - index_ret

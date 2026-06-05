@@ -104,21 +104,13 @@ def _build_peers(payload: CompanyPayload, provider: DataProvider, sector: str | 
     subject_mcap = payload.price.market_cap
     for tk in candidates:
         try:
-            p = provider.retrieve(tk)
+            snap = provider.peer_snapshot(tk)  # lightweight (few calls) vs a full retrieve
         except Exception:
             continue
-        if p.price.current is None and not p.key_metrics.pe_ttm:
+        if snap.get("market_cap") is None and snap.get("pe_ttm") is None:
             continue  # peer data unavailable (rate-limited / no fixture)
-        rows.append({
-            "ticker": tk,
-            "name": p.profile.name,
-            "market_cap": p.price.market_cap,
-            "pe_ttm": p.key_metrics.pe_ttm,
-            "ev_ebitda": p.key_metrics.ev_ebitda,
-            "ps": p.key_metrics.ps,
-            "pb": p.key_metrics.pb,
-        })
-        if len(rows) >= 4:  # cap peers (each peer is a full retrieve; keeps API usage modest)
+        rows.append(snap)
+        if len(rows) >= 4:  # cap peers to keep API usage modest
             break
 
     # Sort by market-cap proximity to the subject when available.

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from app.models.schemas import CompanyPayload
+from app.models.schemas import CompanyPayload, PricePoint
 
 
 class DataProvider(ABC):
@@ -27,3 +27,24 @@ class DataProvider(ABC):
         `payload.warnings` when a section could not be fetched.
         """
         raise NotImplementedError
+
+    # --- optional lightweight fetches (override for metered APIs to save calls) ---
+
+    def peer_snapshot(self, ticker: str) -> dict:
+        """Just the fields the peer table needs. Default derives from a full retrieve(); metered
+        providers override this to fetch only quote + multiples (far fewer calls)."""
+        p = self.retrieve(ticker)
+        return {
+            "ticker": ticker.upper(),
+            "name": p.profile.name,
+            "market_cap": p.price.market_cap,
+            "pe_ttm": p.key_metrics.pe_ttm,
+            "ev_ebitda": p.key_metrics.ev_ebitda,
+            "ps": p.key_metrics.ps,
+            "pb": p.key_metrics.pb,
+        }
+
+    def price_history(self, ticker: str) -> list[PricePoint]:
+        """Just the daily close history (for move attribution's index/sector ETFs). Default derives
+        from a full retrieve(); metered providers override this to fetch only the price series."""
+        return self.retrieve(ticker).price.history
