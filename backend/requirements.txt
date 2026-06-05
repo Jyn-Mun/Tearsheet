@@ -1,0 +1,10 @@
+# Pinned for reproducibility. Phase 0 = web framework only;
+# data/LLM/eval deps are added in their respective phases.
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.0
+httpx==0.28.1
+
+# Dev / test
+pytest==8.3.4

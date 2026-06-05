@@ -1,0 +1,42 @@
+/* Tearsheet design tokens — see frontend/DESIGN.md (single source of truth).
+   Phase 0 establishes the base shell only; the full terminal UI lands in Phase 5. */
+
+:root {
+  --bg: #0b0e14; /* near-black charcoal base */
+  --panel: #141925; /* elevated module surface */
+  --border: #222a38; /* hairline borders */
+  --text: #e6e8eb; /* high-contrast off-white */
+  --text-muted: #8b93a1; /* secondary text */
+  --up: #3fb950; /* gains — green */
+  --down: #f85149; /* losses — red */
+  --accent: #e8b339; /* single amber accent: live/active only */
+
+  --mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular,
+    Menlo, monospace;
+  --sans: "Geist", "IBM Plex Sans", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* All numerics use tabular mono figures — the strongest "real tool" signal. */
+.mono,
+.num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.num {
+  text-align: right;
+}

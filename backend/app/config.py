@@ -1,0 +1,32 @@
+"""Application settings, loaded from environment / .env (never from the repo)."""
+
+from __future__ import annotations
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Typed settings. All optional in v1 — the app runs with zero keys."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    app_name: str = "Tearsheet"
+    app_version: str = "1.0.0"
+
+    # Optional keys — see .env.example. Absent keys degrade gracefully.
+    anthropic_api_key: str | None = None
+    fred_api_key: str | None = None
+
+    # Comma-separated list of allowed CORS origins (the frontend dev server).
+    cors_origins: str = "http://localhost:3000"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+
+settings = Settings()
