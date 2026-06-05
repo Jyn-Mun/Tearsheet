@@ -1,0 +1,45 @@
+{
+  "_about": "Eval cases. Offline, only NVDA/SPY/SMH have recorded fixtures, so data-bearing cases target NVDA; constructed_* cases build synthetic payloads in run_eval.py to exercise conflict/guard logic. Adding the live (yfinance) or EDGAR provider expands ticker coverage with no eval changes. Source domains are Yahoo-only in v1 (SEC deferred).",
+  "expected_source_domains": ["finance.yahoo.com"],
+  "cases": [
+    {"id": "nvda-facts", "ticker": "NVDA", "type": "facts",
+     "question": "snapshot facts for NVDA",
+     "expected_facts": {"sector": "Technology", "industry": "Semiconductors"}},
+
+    {"id": "nvda-citations", "ticker": "NVDA", "type": "citations",
+     "question": "does every analysis claim carry a real source domain?"},
+
+    {"id": "nvda-grounding", "ticker": "NVDA", "type": "grounding",
+     "question": "no number appears that isn't in the retrieved payload"},
+
+    {"id": "nvda-falsifiers", "ticker": "NVDA", "type": "falsifiers",
+     "question": "every bull/bear point includes a falsifier"},
+
+    {"id": "nvda-events-bias", "ticker": "NVDA", "type": "events_bias",
+     "question": "bull vs bear behaviour around earnings — beats vs up?",
+     "expect": {"min_beat_rate": 0.8, "max_post_up_rate": 0.6}},
+
+    {"id": "nvda-attribution", "ticker": "NVDA", "type": "attribution",
+     "question": "why did NVDA move on 2026-06-05?",
+     "date": "2026-06-05",
+     "expect": {"classification": "systematic", "driver": "likely_transient"}},
+
+    {"id": "nvda-dcf-recompute", "ticker": "NVDA", "type": "dcf_recompute",
+     "question": "does the DCF engine reconcile with an independent recompute?"},
+
+    {"id": "nvda-noadvice", "ticker": "NVDA", "type": "no_advice",
+     "question": "no buy/sell/hold/target language across endpoints"},
+
+    {"id": "spy-events-insufficient", "ticker": "SPY", "type": "events_insufficient",
+     "question": "an ETF with no earnings is flagged insufficient sample"},
+
+    {"id": "constructed-conflict", "type": "interpret_conflict",
+     "question": "DCF-implied growth undemanding but multiple a peer premium -> conflicting"},
+
+    {"id": "constructed-dcf-guard", "type": "dcf_guard",
+     "question": "unprofitable financial name -> DCF flagged unreliable, WACC>g guard"},
+
+    {"id": "constructed-grounding-violation", "type": "grounding_violation",
+     "question": "a fabricated number in output IS detected by the hallucination check"}
+  ]
+}

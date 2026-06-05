@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.config import settings
+from app.providers import get_provider
 
 router = APIRouter(tags=["meta"])
 
@@ -25,5 +26,5 @@ def health() -> dict:
             and settings.anthropic_api_key != "",
             "fred": settings.fred_api_key is not None and settings.fred_api_key != "",
         },
-        "data_source": "yfinance",
+        "data_source": get_provider().name,
     }
