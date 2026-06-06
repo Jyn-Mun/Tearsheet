@@ -1,29 +1,40 @@
-# --- Python ---
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-*.egg-info/
-.pytest_cache/
-
-# --- Secrets ---
+# ---- Secrets (most important — never commit these) ----
 .env
-.env.local
-backend/.env
-backend/.env.local
+.env.*
+*.key
+*.pem
+secrets.json
+# ...but DO keep the example/template files (they're documentation, no secrets):
+!.env.example
+!.env.*.example
+!*.example
 
-# --- Caches / data ---
-.cache/
-*.log
-
-# --- Node / Next.js ---
+# ---- Node / frontend ----
 node_modules/
+dist/
+build/
 .next/
 out/
 .turbo/
+.cache/
+.vite/
 npm-debug.log*
 
-# --- OS / editor ---
+# ---- Python / backend ----
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# ---- App caches ----
+.edgar_cache/
+*.log
+
+# ---- OS / editor junk ----
 .DS_Store
+Thumbs.db
 .idea/
 .vscode/
