@@ -13,8 +13,20 @@ export default function Home() {
   const [ticker, setTicker] = useState(DEFAULT);
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<Mode>("live");
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [recent, setRecent] = useState<string[]>([DEFAULT]);
   const health = useQuery({ queryKey: ["health"], queryFn: api.health });
+
+  // Sync theme with <html data-theme> + localStorage.
+  useEffect(() => {
+    const saved = (localStorage.getItem("theme") as "dark" | "light") || "dark";
+    setTheme(saved);
+  }, []);
+  function applyTheme(t: "dark" | "light") {
+    setTheme(t);
+    document.documentElement.setAttribute("data-theme", t);
+    localStorage.setItem("theme", t);
+  }
 
   // Same query key as the Overview panel → TanStack dedupes; this just reads it for the badge.
   const company = useQuery({
@@ -41,6 +53,12 @@ export default function Home() {
       <aside className="rail">
         <div className="brand">Tearsheet<span className="dot">.</span></div>
         <div className="subtle" style={{ fontSize: 12, marginTop: 2 }}>equity research terminal</div>
+
+        <div className="rail-label">Theme</div>
+        <div className="seg" role="group" aria-label="theme">
+          <button className={theme === "dark" ? "on" : ""} onClick={() => applyTheme("dark")}>Dark</button>
+          <button className={theme === "light" ? "on" : ""} onClick={() => applyTheme("light")}>Cream</button>
+        </div>
 
         <div className="rail-label">Data source</div>
         <div className="seg" role="group" aria-label="data source">
