@@ -24,7 +24,7 @@ from app.models.schemas import (
 from app.providers.base import DataProvider
 from app.utils import cache
 
-_TICKERS_TTL = 60 * 60 * 24 * 7   # 7 days — the ticker→CIK map rarely changes
+_TICKERS_TTL = 60 * 60 * 24        # daily — the ticker→CIK map rarely changes
 _FACTS_TTL = 60 * 60 * 12         # 12h — filings don't change intraday
 _BASE_SUB = "https://data.sec.gov"
 _TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
@@ -216,7 +216,12 @@ class EdgarProvider(DataProvider):
         def rank(e: dict) -> tuple:
             return (ok_form(e), str(e.get("filed", "")))
 
+        # Merge ACROSS all candidate tags (a company can switch tags between years — e.g. NVDA
+        # reports recent revenue under `Revenues` but older years under
+        # `RevenueFromContractWithCustomerExcludingAssessedTax`). For each fiscal year, keep the
+        # entry with the best rank (annual form, then latest-filed) regardless of which tag it's in.
         node_root = facts.get("facts", {}).get(taxonomy, {})
+        best: dict[int, dict] = {}
         for tag in tags:
             node = node_root.get(tag)
             if not node:
@@ -224,7 +229,6 @@ class EdgarProvider(DataProvider):
             units = node.get("units", {})
             arr = units.get("USD") or units.get("GBP") or units.get("EUR") or (
                 next(iter(units.values()), []) if units else [])
-            best: dict[int, dict] = {}
             for e in arr:
                 if not ok_form(e):
                     continue  # annual report only (excludes interim 10-Q / 6-K)
@@ -245,9 +249,7 @@ class EdgarProvider(DataProvider):
                     continue
                 if fy not in best or rank(e) > rank(best[fy]):
                     best[fy] = e
-            if best:
-                return {fy: best[fy]["val"] for fy in best}
-        return {}
+        return {fy: best[fy]["val"] for fy in best}
 
     def _fill_financials(self, payload, facts, prov) -> None:
         # US domestic filers report us-gaap in 10-K; foreign filers report ifrs-full in 20-F.

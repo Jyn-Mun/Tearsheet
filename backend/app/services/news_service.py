@@ -18,21 +18,25 @@ def build_news(payload: CompanyPayload) -> dict:
         }
         for n in payload.news
     ]
+    synth = get_synthesizer()
     if not payload.news:
         return {
             "ticker": payload.ticker,
             "source": payload.source,
             "headlines": [],
             "summary": None,
-            "warnings": payload.warnings + ["No news available for this ticker from the data source."],
+            "ai_enabled": synth.ai_enabled,
+            "message": "No recent headlines.",
+            "warnings": payload.warnings,
         }
 
-    summary = get_synthesizer().news_summary(payload)
+    summary = synth.news_summary(payload)
     return {
         "ticker": payload.ticker,
         "source": payload.source,
         "headlines": headlines,
         "summary": summary,
+        "ai_enabled": synth.ai_enabled,
         "advice_terms_found": find_advice_terms(summary),  # must be [] — surfaced for transparency
         "warnings": payload.warnings,
         "disclaimer": "AI summary of public headlines · not financial advice.",

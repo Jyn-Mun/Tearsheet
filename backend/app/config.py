@@ -17,17 +17,16 @@ class Settings(BaseSettings):
     app_name: str = "Tearsheet"
     app_version: str = "1.0.0"
 
-    # Data source: "hybrid" = EDGAR fundamentals + FMP price (recommended), "edgar" = SEC only,
-    # "fmp" = FMP only, "free" = yfinance, "fixture" = offline snapshots.
+    # Data source: "hybrid" = SEC EDGAR fundamentals + Yahoo/yfinance market data (recommended),
+    # "edgar" = SEC only, "free" = yfinance only, "fixture" = offline snapshots.
     data_provider: str = "hybrid"
 
-    # SEC EDGAR requires a descriptive User-Agent with a contact. EDGAR is filings-only
-    # (real fundamentals, no price/market data).
+    # SEC EDGAR requires a descriptive User-Agent with a contact, sent on EVERY sec.gov request.
     sec_user_agent: str = "Tearsheet/1.0 (ed7sheeran@gmail.com)"
 
-    # Financial Modeling Prep (optional; kept as an alternative provider).
-    fmp_api_key: str | None = None
-    fmp_base_url: str = "https://financialmodelingprep.com/stable"
+    # Optional local LLM (Ollama) as a free synthesis fallback when no Anthropic key is set.
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str | None = None  # e.g. "llama3.1" — set to enable the Ollama fallback
 
     # If a live fetch returns essentially nothing (e.g. Yahoo rate-limit) AND this is true,
     # fall back to a fixture for the same ticker when one exists — clearly labelled as sample.

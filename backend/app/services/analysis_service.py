@@ -9,11 +9,12 @@ from __future__ import annotations
 
 from app.models.schemas import CompanyPayload
 from app.services.guards import find_advice_terms, missing_falsifiers
-from app.services.synthesizer import get_synthesizer
+from app.services.synthesizer import AI_DISABLED_NOTE, get_synthesizer
 
 
 def build_analysis(payload: CompanyPayload) -> dict:
-    analysis = get_synthesizer().analysis(payload)
+    synth = get_synthesizer()
+    analysis = synth.analysis(payload)
 
     advice = find_advice_terms(analysis)
     missing = missing_falsifiers(analysis)
@@ -22,6 +23,8 @@ def build_analysis(payload: CompanyPayload) -> dict:
         "ticker": payload.ticker,
         "source": payload.source,
         "as_of": payload.as_of,
+        "ai_enabled": synth.ai_enabled,
+        "ai_note": None if synth.ai_enabled else AI_DISABLED_NOTE,
         "analysis": analysis,
         "invariants": {
             "no_advice": {"passed": not advice, "violations": advice},

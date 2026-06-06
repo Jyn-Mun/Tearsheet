@@ -36,8 +36,15 @@ def _first_news_url(payload: CompanyPayload) -> str | None:
     return None
 
 
+AI_DISABLED_NOTE = (
+    "AI narrative disabled — add an ANTHROPIC_API_KEY (or run a local Ollama model) to enable "
+    "real synthesis. All numeric sections (financials, multiples, DCF, price, news) work without it."
+)
+
+
 class Synthesizer(ABC):
     name = "base"
+    ai_enabled = False  # True only when a real LLM (Anthropic/Ollama) is producing the text
 
     @abstractmethod
     def news_summary(self, payload: CompanyPayload) -> dict: ...
@@ -53,24 +60,26 @@ class Synthesizer(ABC):
 
 
 class MockSynthesizer(Synthesizer):
-    """Deterministic, grounded synthesis from the data — no LLM. Honest, if less insightful."""
+    """No-LLM fallback. Produces a clean, grounded RULE-BASED draft from the retrieved figures
+    (every point still data-derived and falsifiable), and flags ai_enabled=False so the UI can
+    show an honest 'AI narrative disabled' note. No '[mock]' filler text."""
 
-    name = "mock"
+    name = "rule-based"
+    ai_enabled = False
 
     def news_summary(self, payload: CompanyPayload) -> dict:
-        bullets = [
-            {"text": f"[mock] {n.title}", "source_url": n.url}
-            for n in payload.news[:5]
-        ]
-        # Naive sentiment from headline keywords (clearly a heuristic, not the LLM).
+        # No LLM: don't fabricate a summary. Return headlines + a heuristic sentiment, labelled.
         text = " ".join(n.title.lower() for n in payload.news)
-        pos = sum(w in text for w in ("beat", "record", "surge", "raise", "growth", "demand"))
-        neg = sum(w in text for w in ("slide", "fall", "cut", "miss", "probe", "lawsuit", "drop"))
+        pos = sum(w in text for w in ("beat", "record", "surge", "raise", "growth", "demand", "upgrade"))
+        neg = sum(w in text for w in ("slide", "fall", "cut", "miss", "probe", "lawsuit", "drop", "downgrade"))
         sentiment = "positive" if pos > neg else "negative" if neg > pos else "neutral"
         return {
-            "bullets": bullets,
+            "bullets": [],
             "sentiment": sentiment,
-            "key_risks": ["Headlines are descriptive only; see Analysis for a sourced thesis."],
+            "sentiment_basis": "keyword heuristic (no AI key)",
+            "key_risks": [],
+            "ai_enabled": False,
+            "note": AI_DISABLED_NOTE,
             "synthesizer": self.name,
         }
 
@@ -79,73 +88,72 @@ class MockSynthesizer(Synthesizer):
         url = _first_news_url(payload) or _yahoo_url(payload.ticker)
         inc = payload.financials.income
         rev_now = inc[0].revenue if inc else None
-        margin = km.operating_margin
+        cur = payload.profile.currency or ""
 
-        bull = []
-        if margin is not None and margin > 0.2:
+        bull, bear = [], []
+        if km.operating_margin is not None and km.operating_margin > 0.2:
             bull.append({
-                "claim": f"[mock] Operating margin of {_pct(margin)} indicates strong unit economics.",
+                "claim": f"Operating margin of {_pct(km.operating_margin)} indicates strong unit economics.",
                 "source_url": url,
-                "falsifier": "Operating margin compressing below 20% over the next 2–3 prints.",
+                "falsifier": "Operating margin compressing below 20% over the next 2–3 reports.",
                 "variant_view": "Consensus may underrate margin durability if pricing power persists.",
             })
         if km.roe is not None and km.roe > 0.2:
             bull.append({
-                "claim": f"[mock] Return on equity of {_pct(km.roe)} shows efficient capital use.",
+                "claim": f"Return on equity of {_pct(km.roe)} shows efficient use of capital.",
                 "source_url": url,
                 "falsifier": "ROE falling toward the cost of equity as competition intensifies.",
-                "variant_view": "Market may extrapolate today's ROE without pricing mean reversion.",
+                "variant_view": "The market may extrapolate today's ROE without pricing mean reversion.",
             })
         if not bull:
             bull.append({
-                "claim": "[mock] Insufficient data to construct a high-conviction bull point.",
+                "claim": "Profitability/returns are not strong enough in the filings to anchor a bull point.",
                 "source_url": url,
                 "falsifier": "A profitable, growing quarter would establish one.",
                 "variant_view": None,
             })
-
-        bear = []
         if km.pe_ttm is not None and km.pe_ttm > 30:
             bear.append({
-                "claim": f"[mock] Trailing P/E of {km.pe_ttm:.1f}x embeds high growth expectations.",
+                "claim": f"Trailing P/E of {km.pe_ttm:.1f}x embeds high growth expectations.",
                 "source_url": url,
-                "falsifier": "A re-rating lower if growth decelerates below what the multiple implies.",
-                "variant_view": "Bulls assume the multiple is justified by durable growth; that's the debate.",
+                "falsifier": "A de-rating if growth decelerates below what the multiple implies.",
+                "variant_view": "Bulls assume the multiple is justified by durable growth — that's the debate.",
             })
         bear.append({
-            "claim": "[mock] Single-source (Yahoo) data limits provenance granularity vs filings.",
-            "source_url": _yahoo_url(payload.ticker),
-            "falsifier": "Adding the EDGAR provider would resolve figures to specific filings.",
+            "claim": "Without an AI key, this draft is rule-based and may miss qualitative drivers.",
+            "source_url": url,
+            "falsifier": "Enabling AI synthesis would add narrative depth beyond the metrics.",
             "variant_view": None,
         })
 
         premortem = (
-            "[mock] If this thesis fails in ~2 years, the most likely reason in the supplied data is "
+            "If this thesis fails in ~2 years, the most likely reason in the filings is "
             + ("multiple compression as growth normalises." if (km.pe_ttm or 0) > 30
                else "margin erosion reducing the cash flows the value rests on.")
         )
+        snapshot = (
+            f"{payload.profile.name or payload.ticker} — {payload.profile.sector or 'n/a'} / "
+            f"{payload.profile.industry or 'n/a'}."
+            + (f" Latest revenue {rev_now:,.0f} {cur}." if rev_now else "")
+        )
         return {
-            "snapshot": f"[mock synthesis] {payload.profile.name or payload.ticker} — "
-                        f"{payload.profile.sector or 'n/a'} / {payload.profile.industry or 'n/a'}. "
-                        f"Latest revenue: {rev_now:,.0f} {payload.profile.currency or ''}." if rev_now
-                        else f"[mock synthesis] {payload.profile.name or payload.ticker}.",
+            "snapshot": snapshot,
             "recent_developments": [
-                {"date": n.published, "text": f"[mock] {n.title}", "source_url": n.url}
-                for n in payload.news[:3]
+                {"date": n.published, "text": n.title, "source_url": n.url} for n in payload.news[:3]
             ],
             "bull_case": bull,
             "bear_case": bear,
-            "catalysts": ["[mock] Next earnings print", "[mock] Sector/macro repricing"],
-            "risks": ["[mock] Valuation risk", "[mock] Data-source fragility"],
+            "catalysts": ["Next earnings report", "Sector / macro repricing"],
+            "risks": ["Valuation risk", "Execution risk"],
             "thesis": [
-                "[mock] This is a deterministic placeholder thesis built from retrieved metrics.",
-                "[mock] Every point above ships a falsifier per the reasoning contract.",
-                "[mock] No numbers appear that aren't in the retrieved payload.",
-                "[mock] Output stays at interpretation; it expresses no recommendation or target.",
-                "[mock] Add an ANTHROPIC_API_KEY for genuine LLM reasoning.",
+                "Rule-based draft built from the retrieved filings — every point ships a falsifier.",
+                "No numbers appear that aren't in the retrieved payload.",
+                "No recommendation or price target is expressed.",
             ],
-            "watch_next": "[mock] Watch the next earnings print and any change to the growth path.",
+            "watch_next": "Watch the next earnings report and any change to the revenue growth path.",
             "premortem": premortem,
+            "ai_enabled": False,
+            "note": AI_DISABLED_NOTE,
             "synthesizer": self.name,
         }
 
@@ -153,18 +161,18 @@ class MockSynthesizer(Synthesizer):
         eb = stats.get("earnings_behaviour", {})
         n = eb.get("n_reports", 0)
         beats = eb.get("beat_count", 0)
-        post = eb.get("post_window", {})
-        up = post.get("hit_rate")
+        up = eb.get("post_window", {}).get("hit_rate")
         note = (
-            f"[mock] Beat estimates in {beats}/{n} reports, yet the stock rose in only "
+            f"Beat estimates in {beats}/{n} reports, yet the stock rose in only "
             f"{_pct(up) if up is not None else 'n/a'} of post-earnings windows — 'beats' and "
-            f"'stock up' are different things and here they diverge."
-            if n else "[mock] Insufficient earnings history to characterise behaviour."
+            f"'stock up' are different things, and here they diverge."
+            if n else "Insufficient earnings history to characterise behaviour."
         )
         return {
-            "narration": f"[mock] Descriptive earnings/seasonality stats for {ticker} (n={n}). "
+            "narration": f"Descriptive earnings/seasonality statistics for {ticker} (n={n}). "
                          "Historical behaviour is not predictive; known effects are arbitraged and decay.",
             "beat_vs_move_note": note,
+            "ai_enabled": False,
             "synthesizer": self.name,
         }
 
@@ -176,6 +184,7 @@ class AnthropicSynthesizer(Synthesizer):
     """Grounded synthesis via Claude (claude-opus-4-8). Used only when a key is configured."""
 
     name = "anthropic"
+    ai_enabled = True
 
     def __init__(self) -> None:
         import anthropic
@@ -225,11 +234,68 @@ class AnthropicSynthesizer(Synthesizer):
         )
 
 
+class OllamaSynthesizer(Synthesizer):
+    """Free local-LLM synthesis via Ollama (http://localhost:11434), behind the same interface.
+    Enabled when `OLLAMA_MODEL` is set and no Anthropic key is present."""
+
+    name = "ollama"
+    ai_enabled = True
+
+    def __init__(self) -> None:
+        self._model = settings.ollama_model
+        self._base = settings.ollama_base_url
+
+    def _complete_json(self, system: str, user: str, schema: dict) -> dict:
+        import httpx
+
+        prompt = f"{system}\n\n{user}\n\nReturn ONLY valid JSON matching the required fields."
+        r = httpx.post(
+            f"{self._base}/api/generate",
+            json={"model": self._model, "prompt": prompt, "format": "json", "stream": False,
+                  "options": {"temperature": 0.4}},
+            timeout=120.0,
+        )
+        r.raise_for_status()
+        text = r.json().get("response", "").strip()
+        text = text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        data = json.loads(text)
+        data["synthesizer"] = self.name
+        data["ai_enabled"] = True
+        return data
+
+    def news_summary(self, payload: CompanyPayload) -> dict:
+        headlines = [{"title": n.title, "url": n.url, "published": n.published} for n in payload.news]
+        return self._complete_json(prompts.NEWS_SYSTEM,
+                                   "Summarise these headlines.\nDATA:\n" + json.dumps(headlines),
+                                   prompts.NEWS_SCHEMA)
+
+    def analysis(self, payload: CompanyPayload) -> dict:
+        return self._complete_json(
+            prompts.ANALYSIS_SYSTEM,
+            "Produce a sourced, falsifiable, two-sided analysis from ONLY this data. Every bull/bear "
+            "point needs a falsifier; end risks with the pre-mortem.\nDATA:\n"
+            + json.dumps(payload.model_dump(), default=str),
+            prompts.ANALYSIS_SCHEMA)
+
+    def events_narration(self, ticker: str, stats: dict) -> dict:
+        return self._complete_json(
+            prompts.EVENTS_NARRATION_SYSTEM,
+            f"Narrate these statistics for {ticker}; distinguish beats from up-moves.\nSTATS:\n"
+            + json.dumps(stats, default=str),
+            prompts.EVENTS_NARRATION_SCHEMA)
+
+
 _SYNTH: Synthesizer | None = None
 
 
 def get_synthesizer() -> Synthesizer:
+    """Anthropic (if key) → Ollama (if OLLAMA_MODEL set) → rule-based mock. Keys read from env only."""
     global _SYNTH
     if _SYNTH is None:
-        _SYNTH = AnthropicSynthesizer() if settings.anthropic_api_key else MockSynthesizer()
+        if settings.anthropic_api_key:
+            _SYNTH = AnthropicSynthesizer()
+        elif settings.ollama_model:
+            _SYNTH = OllamaSynthesizer()
+        else:
+            _SYNTH = MockSynthesizer()
     return _SYNTH

@@ -12,7 +12,7 @@ from app.models.schemas import CompanyPayload
 from app.providers.base import DataProvider
 
 _INDEX = "SPY"
-# Sector → representative SPDR sector ETF (FMP/Yahoo sector names). SMH kept for the offline
+# Sector → representative SPDR sector ETF (EDGAR/Yahoo sector names). SMH kept for the offline
 # semis fixture; the XL** family covers real sectors for live providers.
 _SECTOR_ETF = {
     "Technology": "XLK",

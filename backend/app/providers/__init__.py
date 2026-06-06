@@ -17,7 +17,6 @@ from app.models.schemas import CompanyPayload
 from app.providers.base import DataProvider
 from app.providers.edgar_provider import EdgarProvider
 from app.providers.fixture_provider import FixtureProvider
-from app.providers.fmp_provider import FMPProvider
 from app.providers.free_provider import FreeProvider
 from app.providers.hybrid_provider import HybridProvider
 
@@ -68,11 +67,9 @@ class _WithSnapshotFallback(DataProvider):
 
 def _build_live() -> DataProvider:
     if settings.data_provider == "hybrid":
-        return _WithSnapshotFallback(HybridProvider(), "SEC EDGAR + FMP (hybrid)")
+        return _WithSnapshotFallback(HybridProvider(), "SEC EDGAR + Yahoo Finance")
     if settings.data_provider == "edgar":
         return _WithSnapshotFallback(EdgarProvider(), "SEC EDGAR (filings)")
-    if settings.data_provider == "fmp":
-        return _WithSnapshotFallback(FMPProvider(), "Financial Modeling Prep (live)")
     if settings.data_provider == "free":
         return _WithSnapshotFallback(FreeProvider(), "Yahoo / yfinance (live)")
     return FixtureProvider()  # configured offline-only

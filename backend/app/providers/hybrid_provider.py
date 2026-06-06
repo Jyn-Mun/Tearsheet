@@ -1,41 +1,27 @@
-"""HybridProvider — SEC EDGAR fundamentals + FMP price/market data.
+"""HybridProvider — SEC EDGAR fundamentals + Yahoo Finance (yfinance) market data.
 
-The best of both: EDGAR gives authoritative, unlimited, all-filer (US + foreign) fundamentals;
-FMP adds the price/market data EDGAR lacks (current price, market cap, history, earnings) so the
-price-dependent panels work. Multiples (P/E, P/S, P/B, EV/EBITDA, margins, FCF-yield) are computed
-from EDGAR statements × the FMP price — no extra FMP calls.
+EDGAR gives authoritative, unlimited, all-filer (US + foreign) fundamentals; yfinance adds the
+market data EDGAR lacks (price, market cap, 52-week range, beta, history, news). Multiples are
+COMPUTED in code from EDGAR statements × the yfinance price — no vendor feed:
+  P/E       = price / (net income / diluted shares)
+  P/S       = market cap / revenue
+  P/B       = market cap / (total assets − total liabilities)
+  EV/EBITDA = (market cap + total debt − cash) / (operating income + D&A)
+  margins   = gross/operating/net from EDGAR; ROIC if derivable.
 
-Graceful degradation (the key requirement): EDGAR is always available, so a search always returns
-everything that can be found for free. If FMP's free daily quota is exhausted, the fundamentals
-still render and the price-dependent fields carry a "resets in ~Xh" note instead of bare n/a.
+Graceful degradation: EDGAR is always available, so a search always returns the fundamentals.
+If Yahoo is unavailable (rate-limit/block), price-dependent fields are n/a with a note; everything
+price-independent (financials, margins, DCF intrinsic value) still renders. No paid feeds.
 """
 
 from __future__ import annotations
 
-import math
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from datetime import datetime, timezone
 
-from app.models.schemas import CompanyPayload, PriceData, PricePoint, Provenance
+from app.models.schemas import CompanyPayload, PricePoint, Provenance
 from app.providers.base import DataProvider
 from app.providers.edgar_provider import EdgarProvider
-from app.providers.fmp_provider import FMPProvider
-
-
-def _f(x: Any) -> float | None:
-    if x is None:
-        return None
-    try:
-        v = float(x)
-        return None if (math.isnan(v) or math.isinf(v)) else v
-    except (TypeError, ValueError):
-        return None
-
-
-def _hours_to_reset() -> int:
-    now = datetime.now(timezone.utc)
-    reset = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    return max(1, round((reset - now).total_seconds() / 3600))
+from app.providers.free_provider import FreeProvider
 
 
 def _safe_div(a, b):
@@ -43,73 +29,46 @@ def _safe_div(a, b):
 
 
 class HybridProvider(DataProvider):
-    name = "SEC EDGAR + FMP (hybrid)"
+    name = "SEC EDGAR + Yahoo Finance"
 
     def __init__(self) -> None:
         self._edgar = EdgarProvider()
-        self._fmp = FMPProvider()
+        self._yahoo = FreeProvider()
 
     def retrieve(self, ticker: str) -> CompanyPayload:
         ticker = ticker.upper().strip()
-        payload = self._edgar.retrieve(ticker)          # fundamentals — always free/unlimited
+        payload = self._edgar.retrieve(ticker)                  # fundamentals (free, unlimited)
         payload.source = self.name
-        # EDGAR's "filings-only, no price" caveat no longer applies — we add price below.
         payload.warnings = [w for w in payload.warnings if "no live price" not in w]
 
-        # Price-INDEPENDENT metrics come from EDGAR and always populate (even if FMP is down).
+        # Price-INDEPENDENT metrics from EDGAR always populate.
         self._edgar_metrics(payload)
 
-        if not self._fmp._key:
-            payload.warnings.insert(0, "No FMP key set — price/market data unavailable (add FMP_API_KEY).")
-            return payload
-
-        self._fmp.rate_limited = False
-        q = self._fmp._row("quote", symbol=ticker)
-        if not q:
-            if self._fmp.rate_limited:
-                h = _hours_to_reset()
-                payload.warnings.insert(
-                    0,
-                    f"Live price/market data unavailable — FMP free daily limit reached. "
-                    f"Price data resets in ~{h}h. SEC filing fundamentals are shown meanwhile; "
-                    f"switch to Offline for a fully-loaded sample company.",
-                )
-            else:
-                payload.warnings.insert(0, "Live price unavailable for this ticker from FMP.")
-            return payload
-
-        self._enrich_price(payload, ticker, q)
-        self._compute_multiples(payload, q)
+        # Market data from Yahoo (price, market cap, beta, 52w, history, news).
         try:
-            self._fmp._fill_earnings(payload, ticker, Provenance(source="FMP", retrieved_at=""))
+            md = self._yahoo.market_data(ticker)
         except Exception:
-            pass
+            md = None
+        if md and md["price"].current is not None:
+            payload.price = md["price"]
+            payload.news = md["news"]
+            payload.provenance["price"] = Provenance(
+                source="Yahoo Finance", source_url=f"https://finance.yahoo.com/quote/{ticker}",
+                retrieved_at=datetime.now(timezone.utc).isoformat())
+            self._price_multiples(payload)
+        else:
+            payload.warnings.insert(
+                0,
+                "Live price/market data unavailable from Yahoo (rate-limit or network). SEC filing "
+                "fundamentals are shown; switch to Offline for a fully-loaded sample company.",
+            )
+            if md and md.get("news"):
+                payload.news = md["news"]
         return payload
 
-    # -------------------------------------------------------------- enrichment
-
-    def _enrich_price(self, payload, ticker, q) -> None:
-        current = _f(q.get("price"))
-        prev = _f(q.get("previousClose"))
-        change_abs = _f(q.get("change"))
-        chg_pct = _f(q.get("changePercentage"))
-        history = self._fmp.price_history(ticker)
-        if current is None and history:
-            current = history[-1].close
-        payload.price = PriceData(
-            current=current, previous_close=prev,
-            change_abs=change_abs if change_abs is not None else (
-                (current - prev) if (current is not None and prev is not None) else None),
-            change_pct=(chg_pct / 100.0) if chg_pct is not None else None,
-            fifty_two_week_high=_f(q.get("yearHigh")), fifty_two_week_low=_f(q.get("yearLow")),
-            market_cap=_f(q.get("marketCap")), beta=None, history=history,
-        )
-        payload.provenance["price"] = Provenance(
-            source="Financial Modeling Prep", source_url=f"https://financialmodelingprep.com/financial-summary/{ticker}",
-            retrieved_at=datetime.now(timezone.utc).isoformat())
+    # -------------------------------------------------------------- metrics
 
     def _edgar_metrics(self, payload) -> None:
-        """Margins + book ROE — derivable from EDGAR alone (no price needed)."""
         km = payload.key_metrics
         inc = payload.financials.income
         bal = payload.financials.balance
@@ -121,24 +80,28 @@ class HybridProvider(DataProvider):
             if bal:
                 km.roe = _safe_div(r0.net_income, bal[0].stockholders_equity)
 
-    def _compute_multiples(self, payload, q) -> None:
-        """Price-based multiples from EDGAR statements × FMP price (no extra FMP calls)."""
+    def _price_multiples(self, payload) -> None:
+        """All multiples computed from EDGAR fundamentals × the Yahoo price."""
         km = payload.key_metrics
         price = payload.price.current
         mcap = payload.price.market_cap
         inc = payload.financials.income
         bal = payload.financials.balance
         shares = km.shares_outstanding
-        if inc and mcap:
+        if inc:
             r0 = inc[0]
-            km.ps = _safe_div(mcap, r0.revenue)
+            if mcap:
+                km.ps = _safe_div(mcap, r0.revenue)
+                if r0.ebitda:
+                    net_debt = (km.total_debt or 0) - (km.total_cash or 0)
+                    km.ev_ebitda = _safe_div(mcap + net_debt, r0.ebitda)
             eps = _safe_div(r0.net_income, shares)
             km.pe_ttm = _safe_div(price, eps) if (price and eps and eps > 0) else None
-            if r0.ebitda:
-                net_debt = (km.total_debt or 0) - (km.total_cash or 0)
-                km.ev_ebitda = _safe_div(mcap + net_debt, r0.ebitda)
         if bal and mcap:
-            km.pb = _safe_div(mcap, bal[0].stockholders_equity)
+            b0 = bal[0]
+            book = (b0.total_assets - b0.total_liabilities) if (
+                b0.total_assets is not None and b0.total_liabilities is not None) else b0.stockholders_equity
+            km.pb = _safe_div(mcap, book)
         cf = payload.financials.cashflow
         if cf and mcap:
             km.fcf_yield = _safe_div(cf[0].free_cash_flow, mcap)
@@ -146,7 +109,7 @@ class HybridProvider(DataProvider):
     # -------------------------------------------------------------- lightweight (peers/ETFs)
 
     def peer_snapshot(self, ticker: str) -> dict:
-        return self._fmp.peer_snapshot(ticker)  # peers need price/market data → FMP
+        return self._yahoo.peer_snapshot(ticker)
 
     def price_history(self, ticker: str) -> list[PricePoint]:
-        return self._fmp.price_history(ticker)
+        return self._yahoo.price_history(ticker)

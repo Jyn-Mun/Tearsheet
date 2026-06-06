@@ -67,8 +67,36 @@ def _cell(series, col) -> float | None:
         return None
 
 
+_PRICE_TTL = 60 * 5  # ~5 minutes for prices/quotes (delayed/EOD anyway)
+
+
 class FreeProvider(DataProvider):
     name = "yfinance"
+
+    # One Ticker object per symbol, reused across calls (process-lifetime).
+    _tickers: dict[str, Any] = {}
+
+    def _ticker(self, symbol: str):
+        import yfinance as yf
+
+        if symbol not in self._tickers:
+            self._tickers[symbol] = yf.Ticker(symbol)
+        return self._tickers[symbol]
+
+    @staticmethod
+    def _yf(fn, *, tries: int = 3, base: float = 1.5):
+        """Call a yfinance accessor with backoff on transient/rate-limit errors."""
+        import time
+
+        last = None
+        for i in range(tries):
+            try:
+                return fn()
+            except Exception as e:  # noqa: BLE001
+                last = e
+                time.sleep(base * (2 ** i))
+        if last:
+            raise last
 
     def retrieve(self, ticker: str) -> CompanyPayload:
         ticker = ticker.upper().strip()
@@ -79,6 +107,89 @@ class FreeProvider(DataProvider):
         payload = self._build(ticker)
         cache.set(f"payload:{ticker}", payload.model_dump())
         return payload
+
+    # --------------------------------------------------- market-data only (for the hybrid)
+
+    def market_data(self, ticker: str) -> dict:
+        """Just price + market metrics + news from yfinance (no financials) — for EDGAR+Yahoo.
+        Cached ~5 min on disk. Returns {"price": PriceData, "news": [NewsItem], "warnings": [...]}.
+        """
+        ticker = ticker.upper().strip()
+        cached = cache.get(f"yf:market:{ticker}", _PRICE_TTL)
+        if cached is not None:
+            return {
+                "price": PriceData.model_validate(cached["price"]),
+                "news": [NewsItem.model_validate(n) for n in cached["news"]],
+                "warnings": cached.get("warnings", []),
+            }
+        payload = CompanyPayload(ticker=ticker, as_of=_now(), source=self.name)
+        prov = Provenance(source=self.name, source_url=f"https://finance.yahoo.com/quote/{ticker}",
+                          retrieved_at=_now())
+        t = self._ticker(ticker)
+        info: dict[str, Any] = {}
+        try:
+            info = self._yf(lambda: t.info) or {}
+        except Exception as e:  # noqa: BLE001
+            payload.warnings.append(f"market data unavailable (Yahoo): {type(e).__name__}")
+        self._fill_price(payload, t, info, prov)
+        self._fill_news(payload, t, prov)
+        if not payload.news:
+            self._fill_news_rss(payload, ticker)
+        out = {"price": payload.price, "news": payload.news, "warnings": payload.warnings}
+        cache.set(f"yf:market:{ticker}", {
+            "price": payload.price.model_dump(),
+            "news": [n.model_dump() for n in payload.news],
+            "warnings": payload.warnings,
+        })
+        return out
+
+    def price_history(self, ticker: str) -> list[PricePoint]:
+        ticker = ticker.upper().strip()
+        cached = cache.get(f"yf:hist:{ticker}", _PRICE_TTL)
+        if cached is not None:
+            return [PricePoint(**p) for p in cached]
+        pts: list[PricePoint] = []
+        try:
+            t = self._ticker(ticker)
+            hist = self._yf(lambda: t.history(period="2y", interval="1d"))
+            if hist is not None and not hist.empty:
+                for idx, v in hist["Close"].dropna().items():
+                    fv = _f(v)
+                    if fv is not None:
+                        pts.append(PricePoint(date=idx.date().isoformat(), close=fv))
+        except Exception:
+            pts = []
+        if pts:
+            cache.set(f"yf:hist:{ticker}", [p.model_dump() for p in pts])
+        return pts
+
+    def _fill_news_rss(self, payload, ticker: str) -> None:
+        """Free finance RSS fallback when yfinance returns no headlines."""
+        import xml.etree.ElementTree as ET
+
+        import httpx
+
+        url = f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={ticker}&region=US&lang=en-US"
+        try:
+            r = httpx.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10.0)
+            r.raise_for_status()
+            root = ET.fromstring(r.text)
+            items = []
+            for it in root.iter("item"):
+                title = (it.findtext("title") or "").strip()
+                if not title:
+                    continue
+                items.append(NewsItem(title=title, publisher="Yahoo Finance RSS",
+                                      url=(it.findtext("link") or None),
+                                      published=(it.findtext("pubDate") or None), summary=None))
+                if len(items) >= 10:
+                    break
+            if items:
+                payload.news = items
+                payload.provenance["news"] = Provenance(source="Yahoo Finance RSS", source_url=url,
+                                                        retrieved_at=_now())
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------ build
 

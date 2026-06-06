@@ -1,17 +1,16 @@
-"""Bake REAL FMP data for a basket of tickers into the app's offline snapshot fixtures.
+"""Bake REAL data for a basket of tickers into the app's offline snapshot fixtures.
 
 This powers the deployed site's Offline mode (and the Live mode's fallback): real point-in-time
-data that always works, with no per-request API calls or limits. Run it once (and occasionally
-to refresh) with your FMP key set. It writes app/providers/fixtures/*.json.
+data that always works, with no per-request network calls or limits. Run it once (and occasionally
+to refresh). Uses the hybrid provider (SEC EDGAR fundamentals + Yahoo market data); needs network
+access to sec.gov + Yahoo. It writes app/providers/fixtures/*.json.
 
-- Stocks → full FMP retrieve() payload (all panels work offline).
+- Stocks → full hybrid retrieve() payload (all panels work offline).
 - ETFs   → price-only minimal payload (enough for move-attribution's index/sector series).
 
-Cost: ~9 calls per stock + 1 per ETF. The default basket (~15 stocks + ~13 ETFs) ≈ 150 calls,
-under the free 250/day budget. Empty results (rate-limit/coverage) are skipped, never overwriting
-good data.
+Empty results (rate-limit/coverage) are skipped, never overwriting good data.
 
-Usage (backend/, venv active, FMP_API_KEY set):
+Usage (backend/, venv active):
     python -m scripts.snapshot                 # default basket
     python -m scripts.snapshot AAPL MSFT SPY   # specific tickers
 """
@@ -23,8 +22,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from app.config import settings
-from app.providers.fmp_provider import FMPProvider
+from app.providers.free_provider import FreeProvider
+from app.providers.hybrid_provider import HybridProvider
 
 OUT = Path(__file__).resolve().parents[1] / "app" / "providers" / "fixtures"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -46,7 +45,7 @@ def _stamp(payload_dict: dict) -> dict:
     return payload_dict
 
 
-def snapshot_stock(prov: FMPProvider, ticker: str) -> bool:
+def snapshot_stock(prov: HybridProvider, ticker: str) -> bool:
     p = prov.retrieve(ticker)
     if p.price.current is None and not p.financials.income:
         print(f"  skip {ticker}: no data (rate-limit/coverage)")
@@ -57,7 +56,7 @@ def snapshot_stock(prov: FMPProvider, ticker: str) -> bool:
     return True
 
 
-def snapshot_etf(prov: FMPProvider, ticker: str) -> bool:
+def snapshot_etf(prov: FreeProvider, ticker: str) -> bool:
     hist = prov.price_history(ticker)
     if not hist:
         print(f"  skip {ticker}: no history")
@@ -81,10 +80,8 @@ def snapshot_etf(prov: FMPProvider, ticker: str) -> bool:
 
 
 def main() -> int:
-    if not settings.fmp_api_key:
-        print("✗ FMP_API_KEY not set — add it to backend/.env first.")
-        return 1
-    prov = FMPProvider()
+    prov = HybridProvider()      # EDGAR fundamentals + Yahoo market data
+    yahoo = FreeProvider()       # for ETF price-only series
     args = [a.upper() for a in sys.argv[1:]]
     stocks = [t for t in (args or STOCKS) if t not in ETFS]
     etfs = [t for t in (args or ETFS) if t in ETFS] if args else ETFS
@@ -94,7 +91,7 @@ def main() -> int:
     for t in stocks:
         n += snapshot_stock(prov, t)
     for t in etfs:
-        n += snapshot_etf(prov, t)
+        n += snapshot_etf(yahoo, t)
     print(f"\n✓ Wrote {n} snapshot fixtures. Offline mode now serves real data for them.")
     return 0
 

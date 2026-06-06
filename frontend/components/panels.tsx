@@ -299,9 +299,15 @@ export function Analysis({ ticker, index, mode }: { ticker: string; index: numbe
   const q = useEndpoint(["analysis", ticker, mode], () => api.analysis(ticker, mode));
   return (
     <Module title="Analysis — AI thesis" index={index}
-      right={q.data ? <span className="muted">{q.data.analysis.synthesizer}</span> : null}>
+      right={q.data ? <span className={`pill ${q.data.ai_enabled ? "good" : ""}`}>{q.data.ai_enabled ? q.data.analysis.synthesizer : "AI off"}</span> : null}>
       {q.isLoading && <Loading />}
       {q.isError && <ErrBox msg={(q.error as Error).message} />}
+      {q.data && !q.data.ai_enabled && (
+        <div className="ai-note">
+          <strong>AI narrative disabled.</strong> {q.data.ai_note}
+          <div style={{ marginTop: 8, opacity: 0.85 }}>A rule-based draft from the figures is shown below.</div>
+        </div>
+      )}
       {q.data && <AnalysisBody d={q.data} />}
     </Module>
   );

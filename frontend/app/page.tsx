@@ -118,7 +118,7 @@ export default function Landing() {
           <Faq q="Is this financial advice?"
             a="No. Tearsheet is a research tool. It shows model outputs with stated assumptions — never buy/sell/hold calls or price targets. That restraint is enforced in code and in the eval harness." />
           <Faq q="Where does the data come from?"
-            a="Free sources only — live market data via Financial Modeling Prep (and a yfinance path), with an offline snapshot mode that always works. You can toggle Live/Offline in the terminal." />
+            a="Free sources only — SEC EDGAR for fundamentals (real 10-K/20-F filings) and Yahoo Finance for market data, with an offline snapshot mode that always works. Toggle Live/Offline in the terminal." />
           <Faq q="Do I need an API key?"
             a="No. The structural analysis — price, financials, valuation, DCF, the reasoning modules — needs no key. An optional Anthropic key upgrades the written thesis from a grounded template to live Claude reasoning." />
           <Faq q="How current is the data?"

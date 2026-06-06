@@ -220,6 +220,10 @@ a.src:hover { color: var(--accent); }
 .loading, .errbox { color: var(--text-muted); font-family: var(--mono); padding: 24px 0; }
 .errbox { color: var(--down); }
 .disc { font-size: 11px; color: var(--text-muted); margin-top: 8px; font-style: italic; }
+.ai-note {
+  background: var(--feature); color: var(--feature-ink); border-radius: var(--r-sm);
+  padding: 12px 14px; margin-bottom: 12px; font-size: 13.5px; line-height: 1.5;
+}
 
 /* =================================================================
    LANDING PAGE
