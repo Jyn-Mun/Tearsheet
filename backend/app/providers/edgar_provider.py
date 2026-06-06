@@ -72,6 +72,58 @@ def _sector_from_sic(sic: str | None) -> str | None:
     return None
 
 
+# Field → candidate XBRL tag names, per taxonomy. First match wins.
+_US_TAGS = {
+    "revenue": ["RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues",
+                "RevenueFromContractWithCustomerIncludingAssessedTax"],
+    "cogs": ["CostOfRevenue", "CostOfGoodsAndServicesSold"],
+    "gross_profit": ["GrossProfit"],
+    "operating_income": ["OperatingIncomeLoss"],
+    "net_income": ["NetIncomeLoss"],
+    "pretax": ["IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+               "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments"],
+    "tax": ["IncomeTaxExpenseBenefit"],
+    "interest": ["InterestExpense", "InterestExpenseNonoperating"],
+    "da": ["DepreciationDepletionAndAmortization", "DepreciationAmortizationAndAccretionNet",
+           "DepreciationAndAmortization"],
+    "assets": ["Assets"],
+    "liabilities": ["Liabilities"],
+    "cash": ["CashAndCashEquivalentsAtCarryingValue",
+             "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"],
+    "equity": ["StockholdersEquity", "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"],
+    "current_assets": ["AssetsCurrent"],
+    "current_liabilities": ["LiabilitiesCurrent"],
+    "lt_debt": ["LongTermDebtNoncurrent", "LongTermDebt"],
+    "cur_debt": ["LongTermDebtCurrent", "DebtCurrent"],
+    "ocf": ["NetCashProvidedByUsedInOperatingActivities",
+            "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"],
+    "capex": ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets"],
+}
+
+_IFRS_TAGS = {
+    "revenue": ["Revenue", "RevenueFromContractsWithCustomers"],
+    "cogs": ["CostOfSales"],
+    "gross_profit": ["GrossProfit"],
+    "operating_income": ["ProfitLossFromOperatingActivities", "OperatingProfitLoss"],
+    "net_income": ["ProfitLoss"],
+    "pretax": ["ProfitLossBeforeTax"],
+    "tax": ["IncomeTaxExpenseContinuingOperations", "IncomeTaxExpenseBenefit"],
+    "interest": ["FinanceCosts", "InterestExpense"],
+    "da": ["DepreciationAndAmortisationExpense",
+           "DepreciationAmortisationAndImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss"],
+    "assets": ["Assets"],
+    "liabilities": ["Liabilities"],
+    "cash": ["CashAndCashEquivalents"],
+    "equity": ["Equity", "EquityAttributableToOwnersOfParent"],
+    "current_assets": ["CurrentAssets"],
+    "current_liabilities": ["CurrentLiabilities"],
+    "lt_debt": ["NoncurrentBorrowings", "BorrowingsNoncurrent"],
+    "cur_debt": ["CurrentBorrowings", "BorrowingsCurrent"],
+    "ocf": ["CashFlowsFromUsedInOperatingActivities"],
+    "capex": ["PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"],
+}
+
+
 class EdgarProvider(DataProvider):
     name = "SEC EDGAR (filings)"
 
@@ -147,30 +199,35 @@ class EdgarProvider(DataProvider):
 
     # ----------------------------------------------------------- XBRL extraction
 
-    def _annual(self, facts: dict, *tags: str) -> dict[int, float]:
-        """{fiscal_year: value} for the first matching us-gaap tag, annual figures.
+    def _annual(self, facts: dict, tags: list[str], taxonomy: str, forms: tuple[str, ...]) -> dict[int, float]:
+        """{fiscal_year: value} for the first matching tag, annual figures.
 
         Keyed by the PERIOD-END year (XBRL's `fy` reflects the filing, not the period, so the same
         value recurs across filings as a comparative). Durational facts (income/cash-flow) are
-        restricted to ~full-year periods; instant facts (balance) use the period end directly.
-        Prefer 10-K, then the latest-filed value for each year.
+        restricted to ~full-year periods; instant facts (balance) use the period end. `forms` is the
+        annual report form(s): ("10-K",) for US domestic, ("20-F",) for foreign filers. Prefer the
+        annual form, then latest-filed.
         """
         from datetime import date
 
-        def rank(e: dict) -> tuple:
-            return (str(e.get("form", "")).startswith("10-K"), str(e.get("filed", "")))
+        def ok_form(e: dict) -> bool:
+            return any(str(e.get("form", "")).startswith(f) for f in forms)
 
-        gaap = facts.get("facts", {}).get("us-gaap", {})
+        def rank(e: dict) -> tuple:
+            return (ok_form(e), str(e.get("filed", "")))
+
+        node_root = facts.get("facts", {}).get(taxonomy, {})
         for tag in tags:
-            node = gaap.get(tag)
+            node = node_root.get(tag)
             if not node:
                 continue
             units = node.get("units", {})
-            arr = units.get("USD") or (next(iter(units.values()), []) if units else [])
+            arr = units.get("USD") or units.get("GBP") or units.get("EUR") or (
+                next(iter(units.values()), []) if units else [])
             best: dict[int, dict] = {}
             for e in arr:
-                if not str(e.get("form", "")).startswith("10-K"):
-                    continue  # annual report only (excludes 10-Q quarter/YTD figures)
+                if not ok_form(e):
+                    continue  # annual report only (excludes interim 10-Q / 6-K)
                 end = e.get("end")
                 if not end:
                     continue
@@ -193,34 +250,33 @@ class EdgarProvider(DataProvider):
         return {}
 
     def _fill_financials(self, payload, facts, prov) -> None:
-        rev = self._annual(facts, "RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues",
-                           "RevenueFromContractWithCustomerIncludingAssessedTax")
-        cogs = self._annual(facts, "CostOfRevenue", "CostOfGoodsAndServicesSold")
-        gp = self._annual(facts, "GrossProfit")
-        oi = self._annual(facts, "OperatingIncomeLoss")
-        ni = self._annual(facts, "NetIncomeLoss")
-        pretax = self._annual(facts, "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
-                              "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments")
-        tax = self._annual(facts, "IncomeTaxExpenseBenefit")
-        interest = self._annual(facts, "InterestExpense", "InterestExpenseNonoperating")
-        da = self._annual(facts, "DepreciationDepletionAndAmortization",
-                          "DepreciationAmortizationAndAccretionNet", "DepreciationAndAmortization")
+        # US domestic filers report us-gaap in 10-K; foreign filers report ifrs-full in 20-F.
+        root = facts.get("facts", {})
+        if root.get("us-gaap"):
+            tax, forms, t = "us-gaap", ("10-K",), _US_TAGS
+        elif root.get("ifrs-full"):
+            tax, forms, t = "ifrs-full", ("20-F",), _IFRS_TAGS
+            payload.warnings.insert(0, "Foreign filer (IFRS / 20-F) — some line items may map "
+                                       "differently or be unavailable.")
+        else:
+            payload.warnings.insert(0, "No us-gaap or ifrs-full XBRL facts available.")
+            return
 
-        assets = self._annual(facts, "Assets")
-        liab = self._annual(facts, "Liabilities")
-        cash = self._annual(facts, "CashAndCashEquivalentsAtCarryingValue",
-                            "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents")
-        equity = self._annual(facts, "StockholdersEquity",
-                              "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest")
-        cur_assets = self._annual(facts, "AssetsCurrent")
-        cur_liab = self._annual(facts, "LiabilitiesCurrent")
-        lt_debt = self._annual(facts, "LongTermDebtNoncurrent", "LongTermDebt")
-        cur_debt = self._annual(facts, "LongTermDebtCurrent", "DebtCurrent")
+        # Detect the reporting currency from the actual units (foreign filers use GBP/EUR/…).
+        cur = self._detect_currency(root.get(tax, {}), t)
+        if cur:
+            payload.profile.currency = cur
 
-        ocf = self._annual(facts, "NetCashProvidedByUsedInOperatingActivities",
-                           "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations")
-        capex = self._annual(facts, "PaymentsToAcquirePropertyPlantAndEquipment",
-                             "PaymentsToAcquireProductiveAssets")
+        def g(field: str) -> dict:
+            return self._annual(facts, t.get(field, []), tax, forms)
+
+        rev, cogs, gp, oi, ni = g("revenue"), g("cogs"), g("gross_profit"), g("operating_income"), g("net_income")
+        pretax, taxp, interest, da = g("pretax"), g("tax"), g("interest"), g("da")
+        assets, liab, cash, equity = g("assets"), g("liabilities"), g("cash"), g("equity")
+        cur_assets, cur_liab = g("current_assets"), g("current_liabilities")
+        lt_debt, cur_debt = g("lt_debt"), g("cur_debt")
+        ocf, capex = g("ocf"), g("capex")
+        tax = taxp  # keep downstream variable name
 
         years = sorted(set(rev) | set(ni) | set(assets), reverse=True)[:5]
         fin = Financials()
@@ -261,6 +317,18 @@ class EdgarProvider(DataProvider):
             payload.key_metrics.total_cash = fin.balance[0].cash_and_equivalents
         if fin.income or fin.balance:
             payload.provenance["financials"] = prov
+
+    @staticmethod
+    def _detect_currency(tax_root: dict, tagmap: dict) -> str | None:
+        known = {"USD", "GBP", "EUR", "JPY", "CHF", "CAD", "AUD", "CNY", "HKD", "SEK"}
+        for field in ("revenue", "assets", "net_income"):
+            for tag in tagmap.get(field, []):
+                node = tax_root.get(tag)
+                if node:
+                    for u in node.get("units", {}):
+                        if u in known:
+                            return u
+        return None
 
     def _fill_shares(self, payload, facts, prov) -> None:
         dei = facts.get("facts", {}).get("dei", {})
