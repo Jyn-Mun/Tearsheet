@@ -28,3 +28,13 @@ def health() -> dict:
         },
         "data_source": get_provider().name,
     }
+
+
+@router.get("/samples")
+def samples() -> dict:
+    """Company tickers available offline (preloaded snapshots) — populates the sidebar.
+    Reference ETFs (index/sector series used internally for attribution) are excluded."""
+    from app.providers.fixture_provider import FixtureProvider
+
+    etfs = {"SPY", "SMH", "XLK", "XLF", "XLV", "XLY", "XLP", "XLE", "XLI", "XLB", "XLC", "XLU", "XLRE"}
+    return {"tickers": [t for t in FixtureProvider().available() if t not in etfs]}

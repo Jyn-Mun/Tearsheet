@@ -55,14 +55,16 @@ function OverviewBody({ d }: { d: any }) {
     );
   }
   const noPrice = p.current === null;
+  const priceWarn = (d.warnings ?? []).find(
+    (w: string) => /price|limit|resets/i.test(w),
+  );
   return (
     <>
       {sampleBanner(d.source)}
       {noPrice && (
         <div className="banner">
-          ⊙ {String(d.source).includes("EDGAR") ? "SEC EDGAR" : "This source"} provides filing
-          fundamentals only — no price, market cap, or multiples. The DCF still computes an
-          intrinsic value from real cash flows.
+          ⊙ {priceWarn ||
+            "Price/market data unavailable from this source. The DCF still computes an intrinsic value from real cash flows."}
         </div>
       )}
       <div className="headline">

@@ -69,6 +69,7 @@ class FMPProvider(DataProvider):
     def __init__(self) -> None:
         self._key = settings.fmp_api_key
         self._base = settings.fmp_base_url
+        self.rate_limited = False  # set True when the daily quota is hit ("Limit Reach" / 429)
 
     # --------------------------------------------------------------- http
 
@@ -78,6 +79,9 @@ class FMPProvider(DataProvider):
         params["apikey"] = self._key
         try:
             r = httpx.get(f"{self._base}/{endpoint}", params=params, timeout=15.0)
+            if r.status_code == 429 or "Limit Reach" in r.text:
+                self.rate_limited = True
+                return None
             r.raise_for_status()
             data = r.json()
             if isinstance(data, dict) and ("Error Message" in data or "Restricted Endpoint" in str(data)):

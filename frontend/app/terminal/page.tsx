@@ -33,6 +33,7 @@ export default function Home() {
     queryKey: ["company", ticker, mode],
     queryFn: () => api.company(ticker, mode),
   });
+  const samples = useQuery({ queryKey: ["samples"], queryFn: api.samples });
 
   useEffect(() => {
     setRecent((r) => [ticker, ...r.filter((x) => x !== ticker)].slice(0, 8));
@@ -84,6 +85,26 @@ export default function Home() {
             <li key={r} className={r === ticker ? "active" : ""} onClick={() => setTicker(r)}>{r}</li>
           ))}
         </ul>
+
+        <div className="rail-label">
+          Offline companies {mode === "offline" ? "(active)" : ""}
+        </div>
+        <div className="chips">
+          {(samples.data?.tickers ?? []).map((s) => (
+            <button
+              key={s}
+              className={`chip ${s === ticker ? "on" : ""}`}
+              onClick={() => { setTicker(s); setMode("offline"); }}
+              title={`Load ${s} from offline snapshot`}
+            >
+              {s}
+            </button>
+          ))}
+          {!samples.data?.tickers?.length && <span className="subtle" style={{ fontSize: 12 }}>none loaded</span>}
+        </div>
+        <div className="subtle" style={{ fontSize: 11, marginTop: 6, lineHeight: 1.4 }}>
+          Preloaded snapshots — always available, no API limits.
+        </div>
 
         <div className="status-line">
           <span className="dot-ind" style={{ background: dot }} />

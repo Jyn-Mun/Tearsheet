@@ -19,6 +19,7 @@ from app.providers.edgar_provider import EdgarProvider
 from app.providers.fixture_provider import FixtureProvider
 from app.providers.fmp_provider import FMPProvider
 from app.providers.free_provider import FreeProvider
+from app.providers.hybrid_provider import HybridProvider
 
 
 def _is_empty(p: CompanyPayload) -> bool:
@@ -66,6 +67,8 @@ class _WithSnapshotFallback(DataProvider):
 
 
 def _build_live() -> DataProvider:
+    if settings.data_provider == "hybrid":
+        return _WithSnapshotFallback(HybridProvider(), "SEC EDGAR + FMP (hybrid)")
     if settings.data_provider == "edgar":
         return _WithSnapshotFallback(EdgarProvider(), "SEC EDGAR (filings)")
     if settings.data_provider == "fmp":

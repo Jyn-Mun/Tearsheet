@@ -17,9 +17,9 @@ class Settings(BaseSettings):
     app_name: str = "Tearsheet"
     app_version: str = "1.0.0"
 
-    # Data source: "edgar" = SEC EDGAR (live fundamentals, no key, unlimited),
-    # "fmp" = Financial Modeling Prep (live, key), "free" = yfinance, "fixture" = offline snapshots.
-    data_provider: str = "edgar"
+    # Data source: "hybrid" = EDGAR fundamentals + FMP price (recommended), "edgar" = SEC only,
+    # "fmp" = FMP only, "free" = yfinance, "fixture" = offline snapshots.
+    data_provider: str = "hybrid"
 
     # SEC EDGAR requires a descriptive User-Agent with a contact. EDGAR is filings-only
     # (real fundamentals, no price/market data).

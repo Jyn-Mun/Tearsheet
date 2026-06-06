@@ -27,6 +27,7 @@ const t = (s: string) => encodeURIComponent(s.trim().toUpperCase());
 // Every call carries the Live/Offline mode so the backend serves real API data or snapshots.
 export const api = {
   health: () => getJSON<HealthResponse>("/health"),
+  samples: () => getJSON<{ tickers: string[] }>("/samples"),
   company: (tk: string, mode: Mode) => getJSON<any>(`/company/${t(tk)}?mode=${mode}`),
   financials: (tk: string, mode: Mode) => getJSON<any>(`/financials/${t(tk)}?mode=${mode}`),
   valuation: (tk: string, mode: Mode) => getJSON<any>(`/valuation/${t(tk)}?mode=${mode}`),
