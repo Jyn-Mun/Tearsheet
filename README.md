@@ -148,7 +148,9 @@ Frontend on **Netlify**, FastAPI backend on **Render** free tier. Public build i
 | Var | Purpose |
 |---|---|
 | `SEC_USER_AGENT` | descriptive contact for SEC EDGAR (required, sent on every request) |
-| `TWELVEDATA_API_KEY` | free key (twelvedata.com) for cloud-reliable prices/history; else yfinance (blocked on cloud IPs) |
+| `DATA_SOURCE` | market-data feed: `alpaca`/`twelvedata` (keyed, cloud-safe) in prod, `yfinance` in dev |
+| `ALPACA_API_KEY_ID` / `ALPACA_API_SECRET_KEY` | free Alpaca market-data keys (or `TWELVEDATA_API_KEY`) |
+| `SERVE_FROM_CACHE_ONLY` / `ENABLE_PREFETCH` | resilience: serve only pre-fetched/cached data; warm it on a schedule |
 | `FRONTEND_ORIGIN` | exact Netlify origin allowed by CORS (production) |
 | `DATA_PROVIDER` | `hybrid` / `edgar` / `free` / `fixture` |
 | `ENABLE_TRADING` | research-only guard — keep `false` in production |

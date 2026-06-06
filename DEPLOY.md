@@ -8,11 +8,8 @@ build is **research-only** — no broker/trading/execution routes are mounted (g
 > **Heads-up on free hosting:** Render free sleeps after ~15 min idle, so the first request after
 > idle takes ~30–60s to wake — the UI shows an intentional "Waking the server…" banner for this.
 >
-> **Prices in the cloud:** `yfinance` is blocked from datacenter IPs, so for working prices set a
-> **free Twelve Data key** (`TWELVEDATA_API_KEY`, https://twelvedata.com, 800 calls/day) — the
-> hybrid then uses it instead of yfinance and **every section (price, charts, multiples, risk)
-> works live in the cloud.** Without it, EDGAR fundamentals + scores + DCF still work; prices are
-> n/a. (Or use `DATA_PROVIDER=fixture` for fully-baked sample companies — see step 3.)
+> **Prices in the cloud (don't scrape Yahoo):** `yfinance` is blocked from datacenter IPs. The
+> production path is a **keyed API + cache + pre-fetch**, not a scraper — see *Resilience* below.
 
 ---
 
@@ -36,9 +33,13 @@ build is **research-only** — no broker/trading/execution routes are mounted (g
    | Key | Value | Required |
    |---|---|---|
    | `SEC_USER_AGENT` | `Tearsheet/1.0 (you@example.com)` | ✅ |
-   | `TWELVEDATA_API_KEY` | free key from twelvedata.com — gives working prices in the cloud | ★ recommended |
    | `FRONTEND_ORIGIN` | your Netlify URL, e.g. `https://your-site.netlify.app` | ✅ (CORS lock) |
-   | `DATA_PROVIDER` | `hybrid` (any-ticker, prices best-effort) or `fixture` (baked, all sections) | ✅ |
+   | `DATA_PROVIDER` | `hybrid` | ✅ |
+   | `DATA_SOURCE` | `alpaca` (keyed, cloud-safe) — **prod**; or `twelvedata` | ✅ |
+   | `ALPACA_API_KEY_ID` / `ALPACA_API_SECRET_KEY` | free Alpaca keys (or `TWELVEDATA_API_KEY`) | ★ for prices |
+   | `SERVE_FROM_CACHE_ONLY` | `true` — request path serves stored data only | ★ resilience |
+   | `ENABLE_PREFETCH` | `true` — warm the cache on a schedule | ★ resilience |
+   | `PREFETCH_INTERVAL_HOURS` / `PREFETCH_TICKERS` | `6` / configurable list | optional |
    | `ENABLE_TRADING` | `false` | ✅ (keep off) |
    | `FRED_API_KEY` | free FRED key (else 4.3% fallback) | optional |
    | `ANTHROPIC_API_KEY` | enables AI narrative (else clean "disabled" note) | optional |
@@ -80,6 +81,43 @@ Bake the offline basket (run locally where Yahoo isn't blocked), then commit:
 cd backend && source .venv/bin/activate && python -m scripts.snapshot
 git add app/providers/fixtures && git commit -m "Refresh snapshot basket"
 ```
+
+---
+
+## Resilience — keyed API + cache + pre-fetch (no Yahoo scraping)
+
+The production path never depends on live Yahoo. Three layers:
+
+**1. Pluggable, keyed market source (`DATA_SOURCE`).** EDGAR (fundamentals) + FRED (macro) aren't
+IP-blocked and stay as-is. The *price* source is swappable behind the `DataProvider` interface:
+- `DATA_SOURCE=alpaca` — **production.** Alpaca market data is keyed (header auth), so it works from
+  a shared cloud IP. Free IEX feed gives quotes, ~2y daily bars (charts/risk/move), and news.
+  Market cap = price × EDGAR shares; all multiples computed in code.
+- `DATA_SOURCE=twelvedata` — alternative keyed API (`TWELVEDATA_API_KEY`).
+- `DATA_SOURCE=yfinance` — **local dev only** (routed through a curl_cffi browser session + backoff
+  as a fallback — never the production path).
+
+**2. TTL cache (mandatory).** Every external fetch is cached on disk: **prices ~5 min, EDGAR
+fundamentals ~12h**. So it's **one upstream call per ticker per window, shared by all visitors** —
+not one per visitor.
+
+**3. Pre-fetch + cache-only.** Set `SERVE_FROM_CACHE_ONLY=true` and `ENABLE_PREFETCH=true`. The
+in-process scheduler warms the cache for `PREFETCH_TICKERS` (~25 popular names, configurable) every
+`PREFETCH_INTERVAL_HOURS`, and the **request path then serves ONLY stored data — it never calls
+upstream live.** Only the pre-fetch job (`live_fetch()`) is permitted to hit the API.
+
+> **Confirmed:** with `SERVE_FROM_CACHE_ONLY=true`, a request for a not-yet-fetched ticker returns
+> empty (no upstream call); after the pre-fetch job runs, the same request is served from stored
+> data — still no live call. (See `tests/test_resilience.py`.)
+
+Run the pre-fetch on a schedule one of three ways:
+- **In-process scheduler** (default, free) — `ENABLE_PREFETCH=true`; runs on the Render instance.
+- **Render Cron Job** (if you upgrade) — command `python -m scripts.prefetch` (root `backend`).
+- **GitHub Actions cron** — run `python -m scripts.prefetch` against a checkout, or curl a
+  token-protected trigger; commit the warmed snapshots if you want them in git.
+
+Extra resilience: keep `DATA_PROVIDER`'s snapshot fallback on — if the cache is cold for a ticker
+that has a baked snapshot, it serves that instead of n/a.
 
 ---
 

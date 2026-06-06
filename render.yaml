@@ -18,10 +18,22 @@ services:
       # SEC requires a descriptive contact in the User-Agent (sent on every sec.gov request).
       - key: SEC_USER_AGENT
         sync: false
-      # Free Twelve Data key (https://twelvedata.com) — gives working PRICES in the cloud
-      # (yfinance is blocked from datacenter IPs). Without it, fundamentals work but prices are n/a.
-      - key: TWELVEDATA_API_KEY
+      # PRODUCTION market-data source: Alpaca is keyed (not IP-blocked like Yahoo). Free keys at
+      # alpaca.markets. (Or "twelvedata" with TWELVEDATA_API_KEY.) yfinance is dev-only.
+      - key: DATA_SOURCE
+        value: alpaca
+      - key: ALPACA_API_KEY_ID
         sync: false
+      - key: ALPACA_API_SECRET_KEY
+        sync: false
+      # Resilience: serve the request path from cache/pre-fetch only (no live call per visitor),
+      # and run the in-process pre-fetch scheduler to warm it.
+      - key: SERVE_FROM_CACHE_ONLY
+        value: "true"
+      - key: ENABLE_PREFETCH
+        value: "true"
+      - key: PREFETCH_INTERVAL_HOURS
+        value: "6"
       # CORS lock — set to your exact Netlify URL, e.g. https://tearsheet.netlify.app
       - key: FRONTEND_ORIGIN
         sync: false

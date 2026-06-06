@@ -35,6 +35,10 @@ def _now() -> str:
 
 
 def _get(url: str) -> Any:
+    from app.cache_policy import should_fetch_live
+
+    if not should_fetch_live():
+        return None  # cache-only request path — rely on what the pre-fetch job stored
     import httpx
 
     try:
@@ -144,17 +148,20 @@ class EdgarProvider(DataProvider):
     # ----------------------------------------------------------- cik map
 
     def _load_cik_map(self) -> dict[str, str]:
-        if self._cik_map is not None:
+        from app.cache_policy import read_ttl
+
+        if self._cik_map:  # only memoize a NON-empty map (an empty result must not be cached in-memory)
             return self._cik_map
-        cached = cache.get("edgar:tickers", _TICKERS_TTL)
+        cached = cache.get("edgar:tickers", read_ttl(_TICKERS_TTL))
         if cached is None:
             data = _get(_TICKERS_URL) or {}
             cached = {v["ticker"].upper(): str(v["cik_str"]).zfill(10)
                       for v in data.values()} if data else {}
             if cached:
                 cache.set("edgar:tickers", cached)
-        self._cik_map = cached
-        return cached
+        if cached:
+            self._cik_map = cached
+        return cached or {}
 
     # ----------------------------------------------------------- retrieve
 
@@ -172,7 +179,8 @@ class EdgarProvider(DataProvider):
             payload.warnings.insert(0, f"No SEC CIK found for {ticker} (US-listed filers only).")
             return payload
 
-        cached = cache.get(f"edgar:facts:{cik}", _FACTS_TTL)
+        from app.cache_policy import read_ttl
+        cached = cache.get(f"edgar:facts:{cik}", read_ttl(_FACTS_TTL))
         facts = cached if cached is not None else _get(
             f"{_BASE_SUB}/api/xbrl/companyfacts/CIK{cik}.json")
         if facts and cached is None:

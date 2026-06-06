@@ -15,6 +15,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from typing import Any
 
+from app.cache_policy import read_ttl, should_fetch_live
 from app.config import settings
 from app.models.schemas import NewsItem, PriceData, PricePoint, Provenance
 from app.utils import cache
@@ -42,6 +43,8 @@ class TwelveDataProvider:
         self.rate_limited = False
 
     def _get(self, endpoint: str, **params: Any) -> Any:
+        if not should_fetch_live() or not self._key:
+            return None  # cache-only request path (or no key) — never call upstream live
         import httpx
 
         params["apikey"] = self._key
@@ -61,7 +64,7 @@ class TwelveDataProvider:
 
     def market_data(self, ticker: str) -> dict:
         ticker = ticker.upper().strip()
-        cached = cache.get(f"td:market:{ticker}", _TTL)
+        cached = cache.get(f"td:market:{ticker}", read_ttl(_TTL))
         if cached is not None:
             return {"price": PriceData.model_validate(cached["price"]),
                     "news": [NewsItem.model_validate(n) for n in cached["news"]],
@@ -98,7 +101,7 @@ class TwelveDataProvider:
 
     def price_history(self, ticker: str) -> list[PricePoint]:
         ticker = ticker.upper().strip()
-        cached = cache.get(f"td:hist:{ticker}", _TTL)
+        cached = cache.get(f"td:hist:{ticker}", read_ttl(_TTL))
         if cached is not None:
             return [PricePoint(**p) for p in cached]
         data = self._get("time_series", symbol=ticker, interval="1day", outputsize=520, order="ASC")

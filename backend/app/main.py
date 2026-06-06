@@ -7,6 +7,8 @@ and are never included in a public deploy — see the guarded block at the botto
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -22,7 +24,18 @@ from app.routes import (
     interpret,
 )
 
-app = FastAPI(title=settings.app_name, version=settings.app_version)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Start the in-process pre-fetch scheduler (no-op unless ENABLE_PREFETCH=true). It warms the
+    # cache so public requests are served from stored data — never hitting upstream live.
+    from app.services.prefetch import start_scheduler
+
+    start_scheduler()
+    yield
+
+
+app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
 
 # CORS: exact-origin lock. In production FRONTEND_ORIGIN pins this to your Netlify URL only —
 # never "*". GET-only, no credentials needed (public data, no cookies/auth).

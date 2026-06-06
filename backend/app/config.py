@@ -24,8 +24,34 @@ class Settings(BaseSettings):
     # SEC EDGAR requires a descriptive User-Agent with a contact, sent on EVERY sec.gov request.
     sec_user_agent: str = "Tearsheet/1.0 (ed7sheeran@gmail.com)"
 
-    # Market-data source for the hybrid. yfinance is free but blocked from datacenter IPs; set a
-    # free Twelve Data key (https://twelvedata.com, 800 calls/day) for reliable prices in the cloud.
+    # Market-data source for the hybrid: "alpaca" (prod, keyed, cloud-safe), "twelvedata" (keyed),
+    # or "yfinance" (LOCAL DEV ONLY — Yahoo scraping, blocked from datacenter IPs).
+    data_source: str = "yfinance"
+
+    # Resilience: when true, the request path NEVER calls upstream live — it serves only data the
+    # pre-fetch job has stored in the cache. Pair with ENABLE_PREFETCH in production.
+    serve_from_cache_only: bool = False
+
+    # Pre-fetch job: warm the cache for a fixed ticker list a few times a day so all visitors are
+    # served from stored data. Runs in-process when ENABLE_PREFETCH is true.
+    enable_prefetch: bool = False
+    prefetch_interval_hours: float = 6.0
+    prefetch_tickers: str = (
+        "AAPL,MSFT,NVDA,GOOGL,AMZN,META,TSLA,AVGO,AMD,INTC,JPM,V,JNJ,WMT,PG,XOM,"
+        "KO,PEP,COST,HD,UNH,DIS,NFLX,CRM,ORCL"
+    )
+
+    @property
+    def prefetch_ticker_list(self) -> list[str]:
+        return [t.strip().upper() for t in self.prefetch_tickers.split(",") if t.strip()]
+
+    # Alpaca market data (free real-time-ish US equities; IEX feed on the free plan). Keyed API,
+    # so it is NOT IP-blocked like Yahoo. Keys from env only.
+    alpaca_api_key_id: str | None = None
+    alpaca_api_secret_key: str | None = None
+    alpaca_data_url: str = "https://data.alpaca.markets"
+
+    # Twelve Data (alternative keyed market source; 800 calls/day free).
     twelvedata_api_key: str | None = None
     twelvedata_base_url: str = "https://api.twelvedata.com"
 

@@ -80,7 +80,16 @@ class FreeProvider(DataProvider):
         import yfinance as yf
 
         if symbol not in self._tickers:
-            self._tickers[symbol] = yf.Ticker(symbol)
+            # Route through a curl_cffi browser-impersonating session when available — helps with
+            # Yahoo's bot checks. This is the LOCAL-DEV/fallback path only (prod uses a keyed API).
+            session = None
+            try:
+                from curl_cffi import requests as cffi_requests
+
+                session = cffi_requests.Session(impersonate="chrome")
+            except Exception:
+                session = None
+            self._tickers[symbol] = yf.Ticker(symbol, session=session) if session else yf.Ticker(symbol)
         return self._tickers[symbol]
 
     @staticmethod
@@ -114,14 +123,18 @@ class FreeProvider(DataProvider):
         """Just price + market metrics + news from yfinance (no financials) — for EDGAR+Yahoo.
         Cached ~5 min on disk. Returns {"price": PriceData, "news": [NewsItem], "warnings": [...]}.
         """
+        from app.cache_policy import read_ttl, should_fetch_live
+
         ticker = ticker.upper().strip()
-        cached = cache.get(f"yf:market:{ticker}", _PRICE_TTL)
+        cached = cache.get(f"yf:market:{ticker}", read_ttl(_PRICE_TTL))
         if cached is not None:
             return {
                 "price": PriceData.model_validate(cached["price"]),
                 "news": [NewsItem.model_validate(n) for n in cached["news"]],
                 "warnings": cached.get("warnings", []),
             }
+        if not should_fetch_live():
+            return {"price": PriceData(), "news": [], "warnings": ["price not yet pre-fetched"]}
         payload = CompanyPayload(ticker=ticker, as_of=_now(), source=self.name)
         prov = Provenance(source=self.name, source_url=f"https://finance.yahoo.com/quote/{ticker}",
                           retrieved_at=_now())
@@ -144,10 +157,14 @@ class FreeProvider(DataProvider):
         return out
 
     def price_history(self, ticker: str) -> list[PricePoint]:
+        from app.cache_policy import read_ttl, should_fetch_live
+
         ticker = ticker.upper().strip()
-        cached = cache.get(f"yf:hist:{ticker}", _PRICE_TTL)
+        cached = cache.get(f"yf:hist:{ticker}", read_ttl(_PRICE_TTL))
         if cached is not None:
             return [PricePoint(**p) for p in cached]
+        if not should_fetch_live():
+            return []
         pts: list[PricePoint] = []
         try:
             t = self._ticker(ticker)

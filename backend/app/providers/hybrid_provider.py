@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from app.config import settings
 from app.models.schemas import CompanyPayload, PricePoint, Provenance
 from app.providers.base import DataProvider
+from app.providers.alpaca_provider import AlpacaProvider
 from app.providers.edgar_provider import EdgarProvider
 from app.providers.free_provider import FreeProvider
 from app.providers.twelvedata_provider import TwelveDataProvider
@@ -30,18 +31,25 @@ def _safe_div(a, b):
     return (a / b) if (a is not None and b not in (None, 0)) else None
 
 
+def _market_source():
+    """Pick the market-data source from DATA_SOURCE (prod = keyed API; dev = yfinance)."""
+    src = settings.data_source.lower()
+    if src == "alpaca":
+        return AlpacaProvider(), "Alpaca"
+    if src == "twelvedata":
+        return TwelveDataProvider(), "Twelve Data"
+    return FreeProvider(), "Yahoo Finance"  # yfinance — local dev only (IP-blocked in the cloud)
+
+
 class HybridProvider(DataProvider):
-    """EDGAR fundamentals + a cloud-friendly market-data source: Twelve Data when a free key is
-    set (works from datacenter IPs), otherwise yfinance (free, but blocked in the cloud)."""
+    """EDGAR fundamentals + a pluggable market-data source (Alpaca / Twelve Data / yfinance),
+    selected by DATA_SOURCE. EDGAR has no blocking; the market source is keyed in production so it
+    works from a shared cloud IP."""
 
     def __init__(self) -> None:
         self._edgar = EdgarProvider()
-        if settings.twelvedata_api_key:
-            self._market = TwelveDataProvider()
-            self.name = "SEC EDGAR + Twelve Data"
-        else:
-            self._market = FreeProvider()
-            self.name = "SEC EDGAR + Yahoo Finance"
+        self._market, market_name = _market_source()
+        self.name = f"SEC EDGAR + {market_name}"
 
     def retrieve(self, ticker: str) -> CompanyPayload:
         ticker = ticker.upper().strip()
