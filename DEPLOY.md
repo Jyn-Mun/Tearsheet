@@ -1,97 +1,99 @@
-# Deploying Tearsheet (for a public CV / portfolio site)
+# Deploying Tearsheet — Frontend on Netlify, Backend on Render (free)
 
-This app is **two services**: a Next.js frontend and a Python/FastAPI backend. Netlify hosts the
-frontend; the backend needs a Python host (Render's free tier works well). They talk over HTTPS.
+Two services: a **Next.js frontend** (Netlify) and a **FastAPI backend** (Render free tier).
+Visitors only ever see the Netlify URL; the frontend calls the backend over HTTPS. The public
+build is **research-only** — no broker/trading/execution routes are mounted (guarded by
+`ENABLE_TRADING`, off by default).
 
-> **Why not "run locally"?** A visitor to your site is on their own computer — they can't reach
-> your laptop's `localhost`. A public site must have both services hosted. "Run locally" is only
-> for *you* developing.
-
-> **Data strategy for a public site.** Free live data does not scale to public traffic (Yahoo
-> blocks cloud IPs; FMP free is 250 calls/day shared across *all* visitors). So deploy with
-> **Offline mode as the reliable default**, backed by **real snapshots** (always works, no limits),
-> and keep **Live** as a flagged, best-effort option. The UI's Live/Offline toggle already does
-> exactly this.
+> **Heads-up on free hosting:** Render free sleeps after ~15 min idle, so the first request after
+> idle takes ~30–60s to wake — the UI shows an intentional "Waking the server…" banner for this.
+> Also, Yahoo blocks datacenter IPs, so `yfinance` prices may be n/a in production; **SEC EDGAR
+> fundamentals, the scores, and the DCF work fine.** For a site where *every* section is populated,
+> set `DATA_PROVIDER=fixture` (baked snapshots) — see step 3.
 
 ---
 
-## 0. Before you deploy — bake the snapshot data
+## 1. Backend → Render
 
-Offline mode serves `backend/app/providers/fixtures/*.json`. Fill it with real data once (needs your
-FMP key + an unspent daily quota):
-
-```bash
-cd backend && source .venv/bin/activate
-python -m scripts.snapshot            # ~15 stocks + ~13 ETFs, real data
-git add app/providers/fixtures && git commit -m "Refresh snapshot dataset"
-```
-These JSON files ship with the backend, so the deployed site has real (point-in-time) data for the
-whole basket with zero runtime API calls. Re-run occasionally to refresh.
-
----
-
-## 1. Backend → Render (free web service)
-
-1. Push this repo to GitHub.
-2. Render → **New → Web Service** → connect the repo.
+1. Push the repo to GitHub.
+2. Render → **New → Web Service** → connect the repo (or use the included `render.yaml` via
+   **New → Blueprint**).
 3. Settings:
    - **Root Directory:** `backend`
-   - **Runtime:** Python 3
+   - **Runtime:** Python 3 (pinned by `backend/.python-version` = 3.11.9)
    - **Build Command:** `pip install -r requirements.txt`
-   - **Start Command:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-4. **Environment variables:**
-   | Key | Value |
-   |---|---|
-   | `DATA_PROVIDER` | `fmp` (Live works, limited) — or `fixture` for a pure snapshot site |
-   | `FMP_API_KEY` | your free FMP key (only if `DATA_PROVIDER=fmp`) |
-   | `CORS_ORIGINS` | your Netlify URL, e.g. `https://tearsheet.netlify.app` |
-   | `ANTHROPIC_API_KEY` | optional — real thesis instead of the mock |
-   | `ANTHROPIC_MODEL` | optional — e.g. `claude-haiku-4-5` to cut cost |
+   - **Start Command:**
+     ```
+     uvicorn app.main:app --host 0.0.0.0 --port $PORT
+     ```
+     (A `backend/Procfile` with the same line is included as a fallback.)
+   - **Health Check Path:** `/health`
+4. **Environment variables** (Dashboard → Environment):
 
-   A [`render.yaml`](render.yaml) is included so you can also use Render's **Blueprint** flow.
-5. Deploy. Note the URL, e.g. `https://tearsheet-api.onrender.com`. Test `…/health`.
+   | Key | Value | Required |
+   |---|---|---|
+   | `SEC_USER_AGENT` | `Tearsheet/1.0 (you@example.com)` | ✅ |
+   | `FRONTEND_ORIGIN` | your Netlify URL, e.g. `https://your-site.netlify.app` | ✅ (CORS lock) |
+   | `DATA_PROVIDER` | `hybrid` (any-ticker, prices best-effort) or `fixture` (baked, all sections) | ✅ |
+   | `ENABLE_TRADING` | `false` | ✅ (keep off) |
+   | `FRED_API_KEY` | free FRED key (else 4.3% fallback) | optional |
+   | `ANTHROPIC_API_KEY` | enables AI narrative (else clean "disabled" note) | optional |
 
-> Render free tier sleeps after ~15 min idle → the first request after idle takes ~30–50s (cold
-> start). Fine for a portfolio; mention it or add a tiny "waking up…" state if you like.
+5. Deploy. Confirm `https://<your-api>.onrender.com/health` returns `{"status":"ok"}`.
 
 ---
 
 ## 2. Frontend → Netlify
 
 1. Netlify → **Add new site → Import from Git** → same repo.
-2. Settings:
+2. Build settings (also in `netlify.toml`):
    - **Base directory:** `frontend`
    - **Build command:** `npm run build`
    - **Publish directory:** `frontend/.next` (Netlify auto-installs the Next.js runtime)
 3. **Environment variable:**
+
    | Key | Value |
    |---|---|
-   | `NEXT_PUBLIC_API_BASE` | your Render backend URL, e.g. `https://tearsheet-api.onrender.com` |
-4. Deploy. Set `CORS_ORIGINS` on Render to the final Netlify URL and redeploy the backend.
+   | `NEXT_PUBLIC_API_URL` | your Render backend URL, e.g. `https://tearsheet-api.onrender.com` |
 
-> **Simpler alternative:** deploy the frontend on **Vercel** instead (native Next.js, zero config) —
-> same `NEXT_PUBLIC_API_BASE` env var. Use whichever you prefer; the backend setup is identical.
+   > This is **Next.js**, so the prefix is `NEXT_PUBLIC_` (Vite's `VITE_` does not apply).
+4. Deploy. Then set Render's `FRONTEND_ORIGIN` to the final Netlify URL and redeploy the backend.
+
+> **Simpler alt:** **Vercel** also hosts the Next.js frontend with the same `NEXT_PUBLIC_API_URL`
+> var — use whichever you prefer; the backend setup is identical.
 
 ---
 
 ## 3. Recommended public config
 
-| Goal | DATA_PROVIDER | Notes |
+| Goal | `DATA_PROVIDER` | Visitors see |
 |---|---|---|
-| **Bulletproof CV demo** (recommended) | `fixture` | Offline-only, real snapshots, never breaks, $0, no keys. Toggle still shows but both sides serve snapshots. |
-| **Demo + best-effort live** | `fmp` | Live works until the 250/day shared quota is spent, then auto-falls-back to snapshots (flagged). Offline always works. |
-| **Fully live** | `fmp` + paid plan | Real data for all visitors; costs money. |
+| **Every section populated, bulletproof** (best for a CV demo) | `fixture` | A baked basket of real companies — all sections incl. price/charts, instant, no cold-data gaps |
+| Any-ticker live | `hybrid` | Any US/foreign filer's fundamentals + scores + DCF live; price/multiples best-effort (cloud Yahoo block) |
 
-For interviews, the **story** is the value: the `DataProvider` swap point, the DCF + reasoning
-modules, and the eval harness — not whether a quote is live. Point recruiters at the README and
-`python eval/run_eval.py`.
+Bake the offline basket (run locally where Yahoo isn't blocked), then commit:
+```bash
+cd backend && source .venv/bin/activate && python -m scripts.snapshot
+git add app/providers/fixtures && git commit -m "Refresh snapshot basket"
+```
 
 ---
 
-## Checklist
-- [ ] `python -m scripts.snapshot` run; fixtures committed
-- [ ] Backend on Render; `/health` returns ok
-- [ ] `CORS_ORIGINS` = the Netlify URL
-- [ ] Frontend on Netlify with `NEXT_PUBLIC_API_BASE` = the Render URL
-- [ ] `.env` is NOT in git (it's gitignored); keys are set as host env vars
-- [ ] Toggle works; badge shows LIVE / OFFLINE SNAPSHOT correctly
+## CORS (what's configured)
+
+`backend/app/main.py` locks CORS to `settings.allowed_origins`, which is **`FRONTEND_ORIGIN`** when
+set (production) — exact origin only, never `*` — falling back to `CORS_ORIGINS` for local dev.
+Methods are GET-only; credentials are off (public data, no auth/cookies).
+
+---
+
+## Deploy checklist
+
+- [ ] Repo pushed to GitHub; `.env` is **not** committed (gitignored)
+- [ ] Render web service: root `backend`, start `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- [ ] Render env: `SEC_USER_AGENT`, `FRONTEND_ORIGIN` (= Netlify URL), `DATA_PROVIDER`, `ENABLE_TRADING=false`
+- [ ] `https://<api>.onrender.com/health` → `{"status":"ok"}`
+- [ ] Netlify site: base `frontend`, env `NEXT_PUBLIC_API_URL` (= Render URL)
+- [ ] Re-set `FRONTEND_ORIGIN` to the final Netlify URL; redeploy backend
+- [ ] Open the Netlify URL → first load shows the "Waking the server…" banner, then the terminal loads
+- [ ] (Optional) `python -m scripts.snapshot` locally + commit for a fully-populated `fixture` build

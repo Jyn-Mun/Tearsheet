@@ -15,7 +15,14 @@ export default function Home() {
   const [mode, setMode] = useState<Mode>("live");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [recent, setRecent] = useState<string[]>([DEFAULT]);
-  const health = useQuery({ queryKey: ["health"], queryFn: api.health });
+  // Retry a few times with backoff — covers Render free-tier cold starts (server waking ~30–60s).
+  const health = useQuery({
+    queryKey: ["health"],
+    queryFn: api.health,
+    retry: 8,
+    retryDelay: (n) => Math.min(4000, 1000 * (n + 1)),
+  });
+  const [waitSecs, setWaitSecs] = useState(0);
 
   // Sync theme with <html data-theme> + localStorage.
   useEffect(() => {
@@ -46,6 +53,15 @@ export default function Home() {
   }
 
   const ok = health.data?.status === "ok";
+  // Count seconds while the backend is still waking, so the cold-start banner looks intentional.
+  useEffect(() => {
+    if (ok) { setWaitSecs(0); return; }
+    const start = Date.now();
+    const id = setInterval(() => setWaitSecs(Math.round((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [ok]);
+  const waking = !ok && waitSecs >= 2;
+
   const dot = health.isLoading ? "var(--text-muted)" : ok ? "var(--up)" : "var(--down)";
   const badge = dataBadge(company.data);
 
@@ -118,6 +134,12 @@ export default function Home() {
       </aside>
 
       <main className="main">
+        {waking && (
+          <div className="banner" style={{ marginBottom: 16 }}>
+            ⏳ Waking the server… The backend is on a free tier that sleeps when idle, so the first
+            load takes ~30–60s ({waitSecs}s). This only happens once — thanks for your patience.
+          </div>
+        )}
         <Overview ticker={ticker} index={0} mode={mode} />
         <Analytics ticker={ticker} index={1} mode={mode} />
         <Interpretation ticker={ticker} index={2} mode={mode} />

@@ -1,5 +1,5 @@
-# Render Blueprint for the Tearsheet backend (FastAPI).
-# Render → New → Blueprint → point at this repo. Set FMP_API_KEY + CORS_ORIGINS in the dashboard.
+# Render Blueprint for the Tearsheet backend (FastAPI). RESEARCH-ONLY public build.
+# Render → New → Blueprint → point at this repo. Set the `sync: false` secrets in the dashboard.
 services:
   - type: web
     name: tearsheet-api
@@ -8,12 +8,24 @@ services:
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
     envVars:
+      # Data source: "edgar" or "hybrid" work from the cloud (EDGAR is unlimited); note that
+      # yfinance is blocked from datacenter IPs, so prices may be n/a in production — use
+      # "fixture" if you want every section populated for a baked basket of companies.
       - key: DATA_PROVIDER
-        value: fmp            # or "fixture" for a pure-snapshot public site
-      - key: FMP_API_KEY
-        sync: false           # set in the Render dashboard (secret)
-      - key: CORS_ORIGINS
-        sync: false           # set to your Netlify/Vercel URL
+        value: hybrid
+      # SEC requires a descriptive contact in the User-Agent (sent on every sec.gov request).
+      - key: SEC_USER_AGENT
+        sync: false
+      # CORS lock — set to your exact Netlify URL, e.g. https://tearsheet.netlify.app
+      - key: FRONTEND_ORIGIN
+        sync: false
+      # Research-only: keep trading OFF in production.
+      - key: ENABLE_TRADING
+        value: "false"
+      # Optional, all free / degrade gracefully if unset:
+      - key: FRED_API_KEY
+        sync: false        # 10y Treasury for the DCF risk-free rate (else 4.3% fallback)
       - key: ANTHROPIC_API_KEY
-        sync: false           # optional
+        sync: false        # AI narrative; if unset, a clean "AI disabled" note is shown

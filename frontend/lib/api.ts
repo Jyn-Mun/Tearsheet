@@ -1,7 +1,12 @@
 // Typed client to the FastAPI backend. One place that knows the base URL and endpoint shapes.
 
+// Backend base URL. On Netlify, set NEXT_PUBLIC_API_URL to your Render backend URL
+// (e.g. https://tearsheet-api.onrender.com). This is Next.js, so the var is NEXT_PUBLIC_*
+// (Vite's VITE_* prefix does not apply). Falls back to localhost for local dev.
 export const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_URL ??
+  process.env.NEXT_PUBLIC_API_BASE ??
+  "http://localhost:8000";
 
 export type Mode = "live" | "offline";
 

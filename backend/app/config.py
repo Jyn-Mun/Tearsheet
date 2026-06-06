@@ -39,12 +39,26 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     fred_api_key: str | None = None
 
-    # Comma-separated list of allowed CORS origins (the frontend dev server).
+    # CORS. In production set FRONTEND_ORIGIN to your exact Netlify URL — the public build
+    # allows ONLY that origin (never "*"). `cors_origins` is the local-dev fallback list.
+    frontend_origin: str | None = None
     cors_origins: str = "http://localhost:3000"
 
+    # Public build is RESEARCH-ONLY. Any broker/trading/execution routes are guarded by this
+    # flag and stay OFF in production. Never enable on a public deploy.
+    enable_trading: bool = False
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        if self.frontend_origin:
+            # exact-origin lock for production (comma-separated allowed if you have a preview domain)
+            return [o.strip() for o in self.frontend_origin.split(",") if o.strip()]
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    # Back-compat alias.
     @property
     def cors_origin_list(self) -> list[str]:
-        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        return self.allowed_origins
 
 
 settings = Settings()

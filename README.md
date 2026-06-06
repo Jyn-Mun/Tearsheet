@@ -134,6 +134,31 @@ cd backend && pytest -q
 
 ---
 
+## Deploy (free: Netlify + Render)
+
+Frontend on **Netlify**, FastAPI backend on **Render** free tier. Public build is **research-only**
+(no trading routes — `ENABLE_TRADING=false`). Full walkthrough + checklist in
+[`DEPLOY.md`](DEPLOY.md).
+
+- **Render start command:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT` (root dir `backend`)
+- **Netlify env var:** `NEXT_PUBLIC_API_URL` = your Render backend URL
+- **CORS:** locked to `FRONTEND_ORIGIN` (your Netlify URL) — never `*`
+
+### Environment variables (backend, all via env — never committed)
+| Var | Purpose |
+|---|---|
+| `SEC_USER_AGENT` | descriptive contact for SEC EDGAR (required, sent on every request) |
+| `FRONTEND_ORIGIN` | exact Netlify origin allowed by CORS (production) |
+| `DATA_PROVIDER` | `hybrid` / `edgar` / `free` / `fixture` |
+| `ENABLE_TRADING` | research-only guard — keep `false` in production |
+| `FRED_API_KEY` | optional — 10y Treasury for the DCF risk-free rate |
+| `ANTHROPIC_API_KEY` | optional — enables AI narrative (else a clean "disabled" note) |
+| `OLLAMA_MODEL` | optional — free local-LLM narrative fallback |
+
+The site degrades gracefully with **zero paid services**: no Anthropic key → clean "AI narrative
+disabled" note + all numeric sections work; no FRED key → documented risk-free fallback. Free-tier
+cold starts show an intentional "Waking the server…" banner on first load.
+
 ## Design
 
 The UI is a deliberate **analyst-terminal** aesthetic — dark, data-dense, hairline-bordered
