@@ -21,10 +21,11 @@ only**, with a Python eval harness that scores its own factual accuracy and cita
 
 ### Free data only / no secrets in the repo
 - No paid data sources. All keys live in `backend/.env` (gitignored); ship `.env.example` only.
-- **v1 data source is `yfinance` (Yahoo Finance) only** — no key, no personal info required.
-  SEC EDGAR is intentionally deferred and stubbed behind the `DataProvider` interface
-  (`providers/edgar_provider.py`) as a documented future swap. Do **not** wire EDGAR or add a
-  `SEC_USER_AGENT` without an explicit instruction.
+- **Default data source is SEC EDGAR** (`providers/edgar_provider.py`) — real 10-K/10-Q
+  fundamentals, no key, unlimited, but filings-only (no price/market data). Alternatives behind
+  the same `DataProvider` interface: `fmp` (FMP, live quotes+statements), `free` (yfinance),
+  `fixture` (offline snapshots). Selected via `DATA_PROVIDER`. EDGAR needs a descriptive
+  `SEC_USER_AGENT` contact string.
 
 ### The swap point (architecture)
 - Everything that touches the outside world lives behind `backend/app/providers/base.py::DataProvider`.

@@ -15,6 +15,7 @@ from __future__ import annotations
 from app.config import settings
 from app.models.schemas import CompanyPayload
 from app.providers.base import DataProvider
+from app.providers.edgar_provider import EdgarProvider
 from app.providers.fixture_provider import FixtureProvider
 from app.providers.fmp_provider import FMPProvider
 from app.providers.free_provider import FreeProvider
@@ -65,6 +66,8 @@ class _WithSnapshotFallback(DataProvider):
 
 
 def _build_live() -> DataProvider:
+    if settings.data_provider == "edgar":
+        return _WithSnapshotFallback(EdgarProvider(), "SEC EDGAR (filings)")
     if settings.data_provider == "fmp":
         return _WithSnapshotFallback(FMPProvider(), "Financial Modeling Prep (live)")
     if settings.data_provider == "free":

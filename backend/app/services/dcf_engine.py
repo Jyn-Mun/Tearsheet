@@ -208,6 +208,12 @@ def build_assumptions(payload: CompanyPayload, risk_free: float | None = None) -
     market_cap = payload.price.market_cap or (
         (payload.price.current or 0) * (payload.key_metrics.shares_outstanding or 0)
     )
+    # When market data is unavailable (e.g. EDGAR is filings-only), use BOOK equity as the
+    # WACC equity-weight proxy so the model still runs — documented as an approximation.
+    equity_value = market_cap
+    if not equity_value:
+        equity_value = (bal[0].stockholders_equity if bal else None) or 0.0
+        warnings.append("No market cap (filings-only source) — WACC weights use book equity.")
     total_debt = (bal[0].total_debt if bal else None) or payload.key_metrics.total_debt or 0.0
     cash = (bal[0].cash_and_equivalents if bal else None) or payload.key_metrics.total_cash or 0.0
     net_debt = total_debt - cash
@@ -235,7 +241,7 @@ def build_assumptions(payload: CompanyPayload, risk_free: float | None = None) -
         beta=beta,
         erp=DEFAULT_ERP,
         pretax_cost_of_debt=pretax_kd,
-        equity_value=market_cap,
+        equity_value=equity_value,
         debt_value=total_debt,
         net_debt=net_debt,
         shares_outstanding=shares,

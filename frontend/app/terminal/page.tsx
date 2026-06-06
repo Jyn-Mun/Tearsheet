@@ -132,7 +132,11 @@ function dataBadge(d: any): { label: string; cls: string; note: string } {
     return { label: "● LIVE → SNAPSHOT", cls: "snapshot",
       note: "Live unavailable (rate-limit/coverage) — showing a snapshot." };
   }
-  if (src.toLowerCase().includes("live")) {
+  if (src.toLowerCase().includes("edgar")) {
+    return { label: "● LIVE · SEC EDGAR", cls: "live",
+      note: "Real SEC filings (10-K). Fundamentals only — no price/market data." };
+  }
+  if (src && src.trim()) {
     return { label: "● LIVE", cls: "live", note: "Real-time-ish data from the live API." };
   }
   return { label: "● —", cls: "neutral", note: "" };

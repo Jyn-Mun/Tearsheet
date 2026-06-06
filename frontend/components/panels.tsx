@@ -54,16 +54,26 @@ function OverviewBody({ d }: { d: any }) {
       </div>
     );
   }
+  const noPrice = p.current === null;
   return (
     <>
       {sampleBanner(d.source)}
+      {noPrice && (
+        <div className="banner">
+          ⊙ {String(d.source).includes("EDGAR") ? "SEC EDGAR" : "This source"} provides filing
+          fundamentals only — no price, market cap, or multiples. The DCF still computes an
+          intrinsic value from real cash flows.
+        </div>
+      )}
       <div className="headline">
         <span className="company-name">{prof.name ?? d.ticker}</span>
         <span className="muted mono">{d.ticker}</span>
-        <span className="px">{money(p.current)}</span>
-        <span className={`delta ${deltaClass(p.change_pct)}`}>
-          {money(p.change_abs)} ({pct(p.change_pct)})
-        </span>
+        {!noPrice && <span className="px">{money(p.current)}</span>}
+        {!noPrice && (
+          <span className={`delta ${deltaClass(p.change_pct)}`}>
+            {money(p.change_abs)} ({pct(p.change_pct)})
+          </span>
+        )}
       </div>
       <div className="subtle" style={{ marginTop: 6 }}>
         {[prof.exchange, prof.sector, prof.industry, prof.country].filter(Boolean).join(" · ") || NA}

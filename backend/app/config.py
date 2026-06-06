@@ -17,11 +17,15 @@ class Settings(BaseSettings):
     app_name: str = "Tearsheet"
     app_version: str = "1.0.0"
 
-    # Data source: "free" = live yfinance, "fmp" = Financial Modeling Prep (live, key),
-    # "fixture" = recorded sample data (offline).
-    data_provider: str = "free"
+    # Data source: "edgar" = SEC EDGAR (live fundamentals, no key, unlimited),
+    # "fmp" = Financial Modeling Prep (live, key), "free" = yfinance, "fixture" = offline snapshots.
+    data_provider: str = "edgar"
 
-    # Financial Modeling Prep (free key works from any network; yfinance is IP-blocked in some envs).
+    # SEC EDGAR requires a descriptive User-Agent with a contact. EDGAR is filings-only
+    # (real fundamentals, no price/market data).
+    sec_user_agent: str = "Tearsheet/1.0 (ed7sheeran@gmail.com)"
+
+    # Financial Modeling Prep (optional; kept as an alternative provider).
     fmp_api_key: str | None = None
     fmp_base_url: str = "https://financialmodelingprep.com/stable"
 
