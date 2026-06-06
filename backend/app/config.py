@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     # SEC EDGAR requires a descriptive User-Agent with a contact, sent on EVERY sec.gov request.
     sec_user_agent: str = "Tearsheet/1.0 (ed7sheeran@gmail.com)"
 
+    # Market-data source for the hybrid. yfinance is free but blocked from datacenter IPs; set a
+    # free Twelve Data key (https://twelvedata.com, 800 calls/day) for reliable prices in the cloud.
+    twelvedata_api_key: str | None = None
+    twelvedata_base_url: str = "https://api.twelvedata.com"
+
     # Optional local LLM (Ollama) as a free synthesis fallback when no Anthropic key is set.
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str | None = None  # e.g. "llama3.1" — set to enable the Ollama fallback

@@ -18,6 +18,10 @@ services:
       # SEC requires a descriptive contact in the User-Agent (sent on every sec.gov request).
       - key: SEC_USER_AGENT
         sync: false
+      # Free Twelve Data key (https://twelvedata.com) — gives working PRICES in the cloud
+      # (yfinance is blocked from datacenter IPs). Without it, fundamentals work but prices are n/a.
+      - key: TWELVEDATA_API_KEY
+        sync: false
       # CORS lock — set to your exact Netlify URL, e.g. https://tearsheet.netlify.app
       - key: FRONTEND_ORIGIN
         sync: false

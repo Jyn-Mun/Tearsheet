@@ -7,9 +7,12 @@ build is **research-only** — no broker/trading/execution routes are mounted (g
 
 > **Heads-up on free hosting:** Render free sleeps after ~15 min idle, so the first request after
 > idle takes ~30–60s to wake — the UI shows an intentional "Waking the server…" banner for this.
-> Also, Yahoo blocks datacenter IPs, so `yfinance` prices may be n/a in production; **SEC EDGAR
-> fundamentals, the scores, and the DCF work fine.** For a site where *every* section is populated,
-> set `DATA_PROVIDER=fixture` (baked snapshots) — see step 3.
+>
+> **Prices in the cloud:** `yfinance` is blocked from datacenter IPs, so for working prices set a
+> **free Twelve Data key** (`TWELVEDATA_API_KEY`, https://twelvedata.com, 800 calls/day) — the
+> hybrid then uses it instead of yfinance and **every section (price, charts, multiples, risk)
+> works live in the cloud.** Without it, EDGAR fundamentals + scores + DCF still work; prices are
+> n/a. (Or use `DATA_PROVIDER=fixture` for fully-baked sample companies — see step 3.)
 
 ---
 
@@ -33,6 +36,7 @@ build is **research-only** — no broker/trading/execution routes are mounted (g
    | Key | Value | Required |
    |---|---|---|
    | `SEC_USER_AGENT` | `Tearsheet/1.0 (you@example.com)` | ✅ |
+   | `TWELVEDATA_API_KEY` | free key from twelvedata.com — gives working prices in the cloud | ★ recommended |
    | `FRONTEND_ORIGIN` | your Netlify URL, e.g. `https://your-site.netlify.app` | ✅ (CORS lock) |
    | `DATA_PROVIDER` | `hybrid` (any-ticker, prices best-effort) or `fixture` (baked, all sections) | ✅ |
    | `ENABLE_TRADING` | `false` | ✅ (keep off) |

@@ -148,6 +148,7 @@ Frontend on **Netlify**, FastAPI backend on **Render** free tier. Public build i
 | Var | Purpose |
 |---|---|
 | `SEC_USER_AGENT` | descriptive contact for SEC EDGAR (required, sent on every request) |
+| `TWELVEDATA_API_KEY` | free key (twelvedata.com) for cloud-reliable prices/history; else yfinance (blocked on cloud IPs) |
 | `FRONTEND_ORIGIN` | exact Netlify origin allowed by CORS (production) |
 | `DATA_PROVIDER` | `hybrid` / `edgar` / `free` / `fixture` |
 | `ENABLE_TRADING` | research-only guard — keep `false` in production |

@@ -18,10 +18,12 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from app.config import settings
 from app.models.schemas import CompanyPayload, PricePoint, Provenance
 from app.providers.base import DataProvider
 from app.providers.edgar_provider import EdgarProvider
 from app.providers.free_provider import FreeProvider
+from app.providers.twelvedata_provider import TwelveDataProvider
 
 
 def _safe_div(a, b):
@@ -29,11 +31,17 @@ def _safe_div(a, b):
 
 
 class HybridProvider(DataProvider):
-    name = "SEC EDGAR + Yahoo Finance"
+    """EDGAR fundamentals + a cloud-friendly market-data source: Twelve Data when a free key is
+    set (works from datacenter IPs), otherwise yfinance (free, but blocked in the cloud)."""
 
     def __init__(self) -> None:
         self._edgar = EdgarProvider()
-        self._yahoo = FreeProvider()
+        if settings.twelvedata_api_key:
+            self._market = TwelveDataProvider()
+            self.name = "SEC EDGAR + Twelve Data"
+        else:
+            self._market = FreeProvider()
+            self.name = "SEC EDGAR + Yahoo Finance"
 
     def retrieve(self, ticker: str) -> CompanyPayload:
         ticker = ticker.upper().strip()
@@ -44,23 +52,26 @@ class HybridProvider(DataProvider):
         # Price-INDEPENDENT metrics from EDGAR always populate.
         self._edgar_metrics(payload)
 
-        # Market data from Yahoo (price, market cap, beta, 52w, history, news).
+        # Market data (price, 52w, history, news) from the configured market source.
         try:
-            md = self._yahoo.market_data(ticker)
+            md = self._market.market_data(ticker)
         except Exception:
             md = None
         if md and md["price"].current is not None:
             payload.price = md["price"]
             payload.news = md["news"]
+            # Market cap isn't in the free quote — compute it from price × EDGAR diluted shares.
+            if payload.price.market_cap is None and payload.key_metrics.shares_outstanding:
+                payload.price.market_cap = payload.price.current * payload.key_metrics.shares_outstanding
             payload.provenance["price"] = Provenance(
-                source="Yahoo Finance", source_url=f"https://finance.yahoo.com/quote/{ticker}",
+                source=self._market.name, source_url=None,
                 retrieved_at=datetime.now(timezone.utc).isoformat())
             self._price_multiples(payload)
         else:
             payload.warnings.insert(
                 0,
-                "Live price/market data unavailable from Yahoo (rate-limit or network). SEC filing "
-                "fundamentals are shown; switch to Offline for a fully-loaded sample company.",
+                f"Live price/market data unavailable from {self._market.name} (rate-limit or network). "
+                "SEC filing fundamentals are shown; switch to Offline for a fully-loaded sample company.",
             )
             if md and md.get("news"):
                 payload.news = md["news"]
@@ -109,7 +120,7 @@ class HybridProvider(DataProvider):
     # -------------------------------------------------------------- lightweight (peers/ETFs)
 
     def peer_snapshot(self, ticker: str) -> dict:
-        return self._yahoo.peer_snapshot(ticker)
+        return self._market.peer_snapshot(ticker)
 
     def price_history(self, ticker: str) -> list[PricePoint]:
-        return self._yahoo.price_history(ticker)
+        return self._market.price_history(ticker)
