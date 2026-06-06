@@ -13,7 +13,7 @@ dark (default) and a **cream light mode (never plain white)** — switchable via
 ## Hard rules (FORBIDDEN — the AI-slop tells)
 - ❌ No plain white backgrounds. Light mode is **cream** (`#F3EEE2`), never `#FFFFFF`.
 - ❌ No purple/violet gradients. No pastel "friendly fintech" rainbow.
-- ❌ No Inter, Roboto, Arial, system-ui, or Space Grotesk as the primary face.
+- ❌ No Roboto, Arial, or system-ui as the primary face. (Headings = Syne, body = Inter — chosen.)
 - ❌ No drop-shadow "floating card" soup. Shadows are subtle and single-layer.
 - ❌ No evenly-distributed multi-colour palette. One dominant base + the gold accent; green/red
   for financial deltas only.
@@ -31,8 +31,8 @@ financial convention — deltas only, never decoration. The cream "feature" surf
 one highlighted callout per module (the integrated-read / pre-mortem), echoing the reference style.
 
 ## Typography
-- **Display / headings:** Mona Sans (industrial grotesque) — characterful, professional.
-- **Body / UI:** Geist — clean, *not* Inter.
+- **Display / headings:** Syne (characterful geometric display).
+- **Body / UI:** Inter.
 - **All numbers, tickers, prices, timestamps:** JetBrains Mono with `font-variant-numeric:
   tabular-nums`. This is the strongest "serious tool, not generated" signal — never drop it.
 
