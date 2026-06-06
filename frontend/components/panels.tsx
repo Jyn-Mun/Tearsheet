@@ -490,6 +490,103 @@ function MoveBody({ d }: { d: any }) {
   );
 }
 
+/* ------------------------------------------------- Analytics (deterministic) */
+export function Analytics({ ticker, index, mode }: { ticker: string; index: number; mode: Mode }) {
+  const q = useEndpoint(["analytics", ticker, mode], () => api.analytics(ticker, mode));
+  return (
+    <Module title="Analytics — scores & rules (no AI)" index={index}
+      right={<span className="muted">deterministic</span>}>
+      {q.isLoading && <Loading />}
+      {q.isError && <ErrBox msg={(q.error as Error).message} />}
+      {q.data && <AnalyticsBody d={q.data} />}
+    </Module>
+  );
+}
+function score(label: string, val: string, sub: string, cls = "") {
+  return (
+    <div>
+      <div className="k">{label}</div>
+      <div className="v" style={{ fontSize: 18 }}><span className={cls}>{val}</span></div>
+      <div className="subtle" style={{ fontSize: 11 }}>{sub}</div>
+    </div>
+  );
+}
+function AnalyticsBody({ d }: { d: any }) {
+  const s = d.scores, pf = s.piotroski_f, z = s.altman_z, m = s.beneish_m, t = s.trends;
+  const pr = d.price_risk, pk = d.peers?.percentiles ?? {};
+  const interp = d.interpretation;
+  const zoneCls = z.zone === "safe" ? "up" : z.zone === "distress" ? "down" : "accent";
+  const mCls = m.flag ? "down" : m.flag === false ? "up" : "";
+  const sev = (x: string) => (x === "positive" ? "good" : x === "caution" ? "bad" : "");
+  return (
+    <>
+      {/* rules headline */}
+      <div className="callout">
+        <strong className="accent">What it means · </strong>{interp.headline}
+      </div>
+      <div style={{ marginTop: 10 }}>
+        {interp.fired.map((f: any, i: number) => (
+          <div key={i} style={{ display: "flex", gap: 8, alignItems: "baseline", padding: "4px 0" }}>
+            <span className={`pill ${sev(f.severity)}`} style={{ minWidth: 70, textAlign: "center" }}>{f.severity}</span>
+            <span style={{ fontSize: 13 }}>{f.message}</span>
+          </div>
+        ))}
+      </div>
+      <div className="disc">{interp.method}</div>
+
+      {/* quality / health scores */}
+      <div className="subtle accent" style={{ margin: "16px 0 6px" }}>QUALITY & HEALTH</div>
+      <div className="kv">
+        {score("Piotroski F", `${pf.score}/9`, `computable ${pf.computable}/9`, pf.score >= 7 ? "up" : pf.score <= 2 ? "down" : "")}
+        {score("Altman Z", z.z ?? NA, z.zone ? `${z.zone}${z.used_market_cap ? "" : " · book"}` : (z.reason ?? ""), zoneCls)}
+        {score("Beneish M", m.m ?? NA, m.flag === null ? (m.reason ?? "n/a") : m.flag ? "manipulation flag" : "no flag", mCls)}
+        {score("Cash conv.", t.cash_conversion_fcf_ni != null ? t.cash_conversion_fcf_ni.toFixed(2) : NA, "FCF / net income")}
+        {score("Revenue CAGR", pctPlain(t.revenue_cagr), `${t.years}y`)}
+        {score("EPS CAGR", pctPlain(t.eps_cagr), `${t.years}y`)}
+        {score("Margin trend", t.operating_margin_trend != null ? pct(t.operating_margin_trend) : NA, "Δ operating margin", deltaClass(t.operating_margin_trend))}
+        {score("Leverage trend", t.leverage_trend != null ? pct(t.leverage_trend) : NA, "Δ debt/assets", t.leverage_trend > 0 ? "down" : "up")}
+      </div>
+
+      {/* valuation */}
+      <div className="subtle accent" style={{ margin: "16px 0 6px" }}>VALUATION (computed)</div>
+      <div className="kv">
+        {score("ROIC", pctPlain(d.valuation.multiples.roic), "NOPAT/invested")}
+        {score("ROE", pctPlain(d.valuation.multiples.roe), "NI/equity")}
+        {score("FCF yield", pctPlain(d.valuation.multiples.fcf_yield, 2), "FCF/mkt cap")}
+        {score("Implied growth", pctPlain(d.valuation.market_implied_growth?.implied_year1_revenue_growth), "reverse-DCF")}
+      </div>
+
+      {/* price / risk */}
+      {pr && pr.available !== false ? (
+        <>
+          <div className="subtle accent" style={{ margin: "16px 0 6px" }}>PRICE / RISK</div>
+          <div className="kv">
+            {score("Ann. vol", pctPlain(pr.annualized_volatility?.value), `n=${pr.annualized_volatility?.n}`)}
+            {score("Sharpe", pr.sharpe?.value?.toFixed(2) ?? NA, "ann.")}
+            {score("Sortino", pr.sortino?.value?.toFixed(2) ?? NA, "downside")}
+            {score("Max DD", pctPlain(pr.max_drawdown?.value), "2y")}
+            {score("Beta", pr.beta_vs_index?.beta?.toFixed(2) ?? NA, "vs SPY")}
+            {score("12-1 mom.", pctPlain(pr.momentum_12_1?.value), "ex-1m")}
+            {score("RSI(14)", pr.rsi_14?.value?.toFixed(0) ?? NA, "")}
+            {score("vs 200d MA", pctPlain(pr.moving_averages?.price_vs_ma200), pr.moving_averages?.golden_cross ? "golden cross" : "")}
+          </div>
+        </>
+      ) : (
+        <div className="subtle" style={{ marginTop: 12 }}>Price/risk needs market data (Yahoo) — n/a from this source.</div>
+      )}
+
+      {/* peer percentiles */}
+      <div className="subtle accent" style={{ margin: "16px 0 6px" }}>PEER PERCENTILE — {(d.peers?.peer_set ?? []).join(", ") || "n/a"}</div>
+      <div className="kv">
+        {score("Op. margin", pk.operating_margin != null ? `${Math.round(pk.operating_margin)}th` : NA, "vs peers")}
+        {score("P/E", pk.pe_ttm != null ? `${Math.round(pk.pe_ttm)}th` : NA, "vs peers")}
+        {score("FCF yield", pk.fcf_yield != null ? `${Math.round(pk.fcf_yield)}th` : NA, "vs peers")}
+      </div>
+      <div className="disc">{d.disclaimer}</div>
+    </>
+  );
+}
+
 /* ------------------------------------------------- News */
 export function News({ ticker, index, mode }: { ticker: string; index: number; mode: Mode }) {
   const q = useEndpoint(["news", ticker, mode], () => api.news(ticker, mode));

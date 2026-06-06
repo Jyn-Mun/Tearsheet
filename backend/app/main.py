@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.routes import (
     analysis,
+    analytics,
     company,
     dcf,
     events,
@@ -37,6 +38,7 @@ app.include_router(dcf.router)
 app.include_router(analysis.router)
 app.include_router(events.router)
 app.include_router(interpret.router)
+app.include_router(analytics.router)
 
 
 @app.get("/", tags=["meta"])

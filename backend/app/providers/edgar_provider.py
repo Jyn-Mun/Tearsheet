@@ -98,6 +98,12 @@ _US_TAGS = {
     "ocf": ["NetCashProvidedByUsedInOperatingActivities",
             "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"],
     "capex": ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets"],
+    # extras for quality/health scores
+    "sga": ["SellingGeneralAndAdministrativeExpense", "GeneralAndAdministrativeExpense"],
+    "diluted_shares": ["WeightedAverageNumberOfDilutedSharesOutstanding"],
+    "retained_earnings": ["RetainedEarningsAccumulatedDeficit"],
+    "receivables": ["AccountsReceivableNetCurrent", "ReceivablesNetCurrent"],
+    "ppe": ["PropertyPlantAndEquipmentNet"],
 }
 
 _IFRS_TAGS = {
@@ -121,6 +127,11 @@ _IFRS_TAGS = {
     "cur_debt": ["CurrentBorrowings", "BorrowingsCurrent"],
     "ocf": ["CashFlowsFromUsedInOperatingActivities"],
     "capex": ["PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"],
+    "sga": ["SellingGeneralAndAdministrativeExpense", "AdministrativeExpense"],
+    "diluted_shares": ["WeightedAverageShares", "AdjustedWeightedAverageShares"],
+    "retained_earnings": ["RetainedEarnings"],
+    "receivables": ["TradeAndOtherCurrentReceivables", "CurrentTradeReceivables"],
+    "ppe": ["PropertyPlantAndEquipment"],
 }
 
 
@@ -278,6 +289,7 @@ class EdgarProvider(DataProvider):
         cur_assets, cur_liab = g("current_assets"), g("current_liabilities")
         lt_debt, cur_debt = g("lt_debt"), g("cur_debt")
         ocf, capex = g("ocf"), g("capex")
+        sga, dsh, retearn, recv, ppe = g("sga"), g("diluted_shares"), g("retained_earnings"), g("receivables"), g("ppe")
         tax = taxp  # keep downstream variable name
 
         years = sorted(set(rev) | set(ni) | set(assets), reverse=True)[:5]
@@ -290,7 +302,7 @@ class EdgarProvider(DataProvider):
                 revenue=rev.get(fy), cost_of_revenue=cogs.get(fy), gross_profit=gp.get(fy),
                 operating_income=ebit, ebitda=(ebit + da_v) if (ebit is not None and da_v is not None) else None,
                 pretax_income=pretax.get(fy), tax_provision=tax.get(fy), net_income=ni.get(fy),
-                interest_expense=interest.get(fy),
+                interest_expense=interest.get(fy), sga=sga.get(fy), diluted_shares=dsh.get(fy),
             ))
             ca, cl = cur_assets.get(fy), cur_liab.get(fy)
             debt = None
@@ -302,6 +314,7 @@ class EdgarProvider(DataProvider):
                 cash_and_equivalents=cash.get(fy), total_debt=debt,
                 stockholders_equity=equity.get(fy), current_assets=ca, current_liabilities=cl,
                 working_capital=(ca - cl) if (ca is not None and cl is not None) else None,
+                retained_earnings=retearn.get(fy), receivables=recv.get(fy), ppe=ppe.get(fy),
             ))
             capex_v = capex.get(fy)
             ocf_v = ocf.get(fy)

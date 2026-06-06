@@ -80,6 +80,8 @@ class IncomeRow(BaseModel):
     tax_provision: float | None = None
     net_income: float | None = None
     interest_expense: float | None = None
+    sga: float | None = None              # selling, general & admin (for Beneish)
+    diluted_shares: float | None = None   # weighted-avg diluted shares (for EPS / dilution)
 
 
 class BalanceRow(BaseModel):
@@ -93,6 +95,9 @@ class BalanceRow(BaseModel):
     current_assets: float | None = None
     current_liabilities: float | None = None
     working_capital: float | None = None
+    retained_earnings: float | None = None   # for Altman Z
+    receivables: float | None = None         # for Beneish DSRI
+    ppe: float | None = None                 # net PP&E, for Beneish AQI/DEPI
 
 
 class CashflowRow(BaseModel):

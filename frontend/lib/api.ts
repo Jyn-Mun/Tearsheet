@@ -36,6 +36,7 @@ export const api = {
   analysis: (tk: string, mode: Mode) => getJSON<any>(`/analysis/${t(tk)}?mode=${mode}`),
   events: (tk: string, mode: Mode) => getJSON<any>(`/events/${t(tk)}?mode=${mode}`),
   interpret: (tk: string, mode: Mode) => getJSON<any>(`/interpret/${t(tk)}?mode=${mode}`),
+  analytics: (tk: string, mode: Mode) => getJSON<any>(`/analytics/${t(tk)}?mode=${mode}`),
   explainMove: (tk: string, mode: Mode, date?: string) =>
     getJSON<any>(`/explain-move/${t(tk)}?mode=${mode}${date ? `&date=${date}` : ""}`),
 };

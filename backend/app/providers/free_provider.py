@@ -159,8 +159,9 @@ class FreeProvider(DataProvider):
                         pts.append(PricePoint(date=idx.date().isoformat(), close=fv))
         except Exception:
             pts = []
-        if pts:
-            cache.set(f"yf:hist:{ticker}", [p.model_dump() for p in pts])
+        # Cache even an empty result (short TTL) so a blocked Yahoo doesn't re-trigger backoff
+        # on every render; it'll retry after the 5-min window.
+        cache.set(f"yf:hist:{ticker}", [p.model_dump() for p in pts])
         return pts
 
     def _fill_news_rss(self, payload, ticker: str) -> None:
