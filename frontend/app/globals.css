@@ -78,13 +78,16 @@ html, body {
 .app { display: grid; grid-template-columns: 290px minmax(0, 1fr); min-height: 100vh; }
 .rail {
   border-right: 1px solid var(--border);
-  padding: 22px 18px;
+  padding: 22px clamp(14px, 4vw, 18px);
   position: sticky; top: 0; height: 100vh; overflow-y: auto;
   background: var(--rail-bg);
+  min-width: 0;   /* allow the grid item to shrink instead of forcing the column wider */
 }
-.main { padding: clamp(16px, 4vw, 26px) clamp(14px, 4vw, 30px) 72px; max-width: 1120px; width: 100%; }
+.main { padding: clamp(16px, 4vw, 26px) clamp(14px, 4vw, 30px) 72px; max-width: 1120px; width: 100%;
+  min-width: 0;   /* critical: lets the 1fr track shrink below a wide table's content (no page blowout) */ }
 @media (max-width: 820px) {
-  .app { grid-template-columns: 1fr; }
+  /* minmax(0,1fr) — NOT "1fr" — so the auto-minimum can't grow the column to a wide table's width */
+  .app { grid-template-columns: minmax(0, 1fr); }
   .rail { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
 }
 
@@ -161,7 +164,7 @@ html, body {
 .company-name { font-family: var(--display); font-size: 19px; font-weight: 700; }
 .subtle { color: var(--text-muted); font-size: 13px; }
 
-.kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px 18px; margin-top: 14px; }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr)); gap: 12px 18px; margin-top: 14px; }
 .kv .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
 .kv .v { font-family: var(--mono); font-size: 16px; }
 
