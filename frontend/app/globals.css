@@ -115,7 +115,7 @@ html, body {
 .seg button {
   background: transparent; color: var(--text-muted); border: none; border-radius: 6px; padding: 7px 0;
   font-family: var(--mono); font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.15s ease; white-space: nowrap;
 }
 .seg button.on { background: var(--accent); color: #1a1408; font-weight: 700; }
 .seg button:hover:not(.on) { color: var(--text); }
@@ -239,7 +239,12 @@ a.src:hover { color: var(--accent); }
 .lp-nav .links { display: flex; gap: 26px; align-items: center; }
 .lp-nav .links a { color: var(--text-muted); text-decoration: none; font-size: 14px; }
 .lp-nav .links a:hover { color: var(--text); }
-@media (max-width: 760px) { .lp-nav .links a:not(.cta) { display: none; } }
+@media (max-width: 760px) {
+  .lp-nav .links a:not(.cta) { display: none; }
+  .lp-nav { padding: 16px 0; }
+  .lp-nav .links { gap: 12px; }
+  .theme-mini button { padding: 7px 11px; }
+}
 
 .btn {
   display: inline-flex; align-items: center; gap: 8px; font-family: var(--sans); font-weight: 600;
@@ -255,10 +260,12 @@ a.src:hover { color: var(--accent); }
 
 .theme-mini {
   display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden;
+  flex-shrink: 0;
 }
 .theme-mini button {
   background: transparent; border: none; color: var(--text-muted); padding: 7px 13px; cursor: pointer;
   font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+  white-space: nowrap; flex-shrink: 0;
 }
 .theme-mini button.on { background: var(--accent); color: #1a1408; }
 
@@ -310,6 +317,20 @@ a.src:hover { color: var(--accent); }
 .feat-card h3 { font-size: 19px; font-weight: 700; margin: 0 0 8px; }
 .feat-card p { font-size: 14px; line-height: 1.55; color: var(--text-muted); margin: 0; }
 .feat-card.featured p { color: color-mix(in srgb, var(--feature-ink) 72%, transparent); }
+
+/* auto-rotating feature carousel (replaces the static grid) */
+.carousel { margin-top: 34px; overflow: hidden; padding: 8px 2px; }
+.carousel-track { display: flex; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+.carousel-slide { min-width: 100%; box-sizing: border-box; padding: 0 6px; display: flex; }
+.carousel-slide .feat-card { width: 100%; }
+.carousel-dots { display: flex; justify-content: center; gap: 9px; margin-top: 22px; }
+.carousel-dot {
+  width: 8px; height: 8px; padding: 0; border: none; border-radius: 999px; cursor: pointer;
+  background: var(--border); transition: background 0.2s ease, width 0.2s ease;
+}
+.carousel-dot:hover { background: var(--text-muted); }
+.carousel-dot.on { background: var(--accent); width: 22px; }
+@media (prefers-reduced-motion: reduce) { .carousel-track { transition: none; } }
 
 /* split row */
 .split { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
