@@ -8,8 +8,13 @@ thesis impact against the falsifiers from /analysis. Never predicts the path, ne
 
 from __future__ import annotations
 
+import logging
+
+from app.config import settings
 from app.models.schemas import CompanyPayload
 from app.providers.base import DataProvider
+
+log = logging.getLogger("tearsheet")
 
 _INDEX = "SPY"
 # Sector → representative SPDR sector ETF (EDGAR/Yahoo sector names). SMH kept for the offline
@@ -28,6 +33,44 @@ _SECTOR_ETF = {
     "Utilities": "XLU",
     "Real Estate": "XLRE",
 }
+
+
+# Keyed prod market source for ETF history, built once. yfinance is rate-limited from a shared
+# cloud IP and unreliable for these ETFs, so in production we pull index/sector ETF history from
+# the SAME keyed source as the rest of prod (Alpaca / Twelve Data), not yfinance.
+_etf_market: DataProvider | None = None
+
+
+def _etf_provider(request_provider: DataProvider) -> DataProvider:
+    """Pick the source for index/sector ETF history.
+
+    - Offline mode (FixtureProvider): keep the request provider so fixtures are honoured.
+    - Prod (DATA_SOURCE = alpaca/twelvedata): force the keyed market provider — never yfinance.
+    - Otherwise (dev yfinance / edgar-only): fall back to the request provider.
+    """
+    global _etf_market
+    if "fixture" in getattr(request_provider, "name", "").lower():
+        return request_provider
+    if settings.data_source.lower() not in ("alpaca", "twelvedata"):
+        return request_provider
+    if _etf_market is None:
+        from app.providers.hybrid_provider import _market_source
+
+        _etf_market, _ = _market_source()
+    return _etf_market
+
+
+def _safe_history(request_provider: DataProvider, ticker: str) -> list:
+    """Daily-close history for one ETF, degrading to [] with a SINGLE concise warning on failure.
+    Successful results are cached by the underlying provider, so we don't refetch within the TTL."""
+    if not ticker:
+        return []
+    try:
+        return _etf_provider(request_provider).price_history(ticker) or []
+    except Exception as e:  # noqa: BLE001
+        log.warning("ETF history unavailable for %s (%s); skipping in move attribution",
+                    ticker, type(e).__name__)
+        return []
 
 
 def _returns(closes: list[float]) -> list[float]:
@@ -93,11 +136,13 @@ def build_move(payload: CompanyPayload, provider: DataProvider, target_date: str
         return {"ticker": payload.ticker, "available": False,
                 "reason": "no price move available for that date", "warnings": payload.warnings}
 
-    # Lightweight price-only fetches for the index/sector ETFs (cheap on metered APIs).
-    index_hist = provider.price_history(_INDEX)
+    # Lightweight price-only fetches for the index/sector ETFs (cheap on metered APIs). Routed
+    # through the keyed prod source and individually fail-safe — a rate-limited ETF degrades the
+    # attribution gracefully instead of erroring the whole request.
+    index_hist = _safe_history(provider, _INDEX)
     # Prefer an industry-specific ETF (e.g. Semiconductors→SMH) before the broad sector ETF.
     sector_tkr = _SECTOR_ETF.get(payload.profile.industry or "") or _SECTOR_ETF.get(payload.profile.sector or "")
-    sector_hist = provider.price_history(sector_tkr) if sector_tkr else []
+    sector_hist = _safe_history(provider, sector_tkr)
     idx_dates = [p.date for p in index_hist]
     idx_closes = [p.close for p in index_hist]
 

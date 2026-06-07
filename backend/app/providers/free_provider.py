@@ -7,6 +7,7 @@ Successful payloads are cached on disk (TTL) to limit calls to Yahoo.
 
 from __future__ import annotations
 
+import logging
 import math
 from datetime import datetime, timezone
 from typing import Any
@@ -27,6 +28,13 @@ from app.models.schemas import (
 )
 from app.providers.base import DataProvider
 from app.utils import cache
+
+log = logging.getLogger("tearsheet")
+
+# yfinance logs its own noisy errors directly ("possibly delisted; no price data found", currency
+# repair tracebacks, etc.) even when we catch the exception. Silence its logger so a rate-limited
+# fetch produces ONE concise line from us, not a wall of yfinance output.
+logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 
 _CACHE_TTL = 60 * 30  # 30 minutes; Yahoo data is delayed/EOD anyway.
 
@@ -187,17 +195,24 @@ class FreeProvider(DataProvider):
         try:
             t = self._ticker(ticker)
             hist = self._yf(lambda: t.history(period=_hist_period(), interval="1d"))
-            if hist is not None and not hist.empty:
-                # Pull only the Close column, then drop the whole DataFrame so it doesn't sit in
-                # RAM for the rest of the call.
-                closes = hist["Close"].dropna()
-                del hist
-                for idx, v in closes.items():
-                    fv = _f(v)
-                    if fv is not None:
-                        pts.append(PricePoint(date=idx.date().isoformat(), close=fv))
-                del closes
-        except Exception:
+            # Guard hard: only iterate a non-empty DataFrame that actually has a Close column.
+            # On a rate-limited/delisted response yfinance can hand back empty or unexpected data
+            # (this is the source of the internal "'str' object has no attribute 'name'" crash) —
+            # we must never call .date()/.items() on that.
+            if hist is None or getattr(hist, "empty", True) or "Close" not in getattr(hist, "columns", []):
+                raise ValueError("empty/unexpected history")
+            # Pull only the Close column, then drop the whole DataFrame so it doesn't sit in
+            # RAM for the rest of the call.
+            closes = hist["Close"].dropna()
+            del hist
+            for idx, v in closes.items():
+                fv = _f(v)
+                # idx must be a Timestamp (has .date()); skip anything yfinance returns that isn't.
+                if fv is not None and hasattr(idx, "date"):
+                    pts.append(PricePoint(date=idx.date().isoformat(), close=fv))
+            del closes
+        except Exception as e:  # noqa: BLE001
+            log.warning("yfinance history unavailable for %s (%s); serving empty", ticker, type(e).__name__)
             pts = []
         # Cache even an empty result (short TTL) so a blocked Yahoo doesn't re-trigger backoff
         # on every render; it'll retry after the 5-min window.
@@ -306,19 +321,22 @@ class FreeProvider(DataProvider):
         history: list[PricePoint] = []
         try:
             hist = t.history(period=_hist_period(), interval="1d")
-            if hist is not None and not hist.empty:
-                closes = hist["Close"].dropna()
-                del hist  # keep only the Close series; release the full OHLCV frame
-                history = [
-                    PricePoint(date=idx.date().isoformat(), close=_f(v))
-                    for idx, v in closes.items()
-                    if _f(v) is not None
-                ]
-                del closes
-                if current is None and history:
-                    current = history[-1].close
-                if prev is None and len(history) >= 2:
-                    prev = history[-2].close
+            # Same hard guard as price_history(): a rate-limited/delisted response can be empty or
+            # malformed, which trips yfinance's internal ".name" crash — never iterate it blindly.
+            if hist is None or getattr(hist, "empty", True) or "Close" not in getattr(hist, "columns", []):
+                raise ValueError("empty/unexpected history")
+            closes = hist["Close"].dropna()
+            del hist  # keep only the Close series; release the full OHLCV frame
+            history = [
+                PricePoint(date=idx.date().isoformat(), close=_f(v))
+                for idx, v in closes.items()
+                if _f(v) is not None and hasattr(idx, "date")
+            ]
+            del closes
+            if current is None and history:
+                current = history[-1].close
+            if prev is None and len(history) >= 2:
+                prev = history[-2].close
         except Exception as e:  # noqa: BLE001
             payload.warnings.append(f"price history unavailable: {type(e).__name__}")
 

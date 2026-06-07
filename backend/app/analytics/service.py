@@ -134,13 +134,13 @@ def build_analytics(payload: CompanyPayload, provider: DataProvider) -> dict:
         },
     }
 
-    # --- price / risk (yfinance) ---
+    # --- price / risk ---
     rf = risk_free_rate() or 0.043
-    idx_closes = None
-    try:
-        idx_closes = [p.close for p in provider.price_history("SPY")] or None
-    except Exception:
-        idx_closes = None
+    # SPY (the beta benchmark) is an ETF — fetch it through the same keyed, fail-safe path the move
+    # engine uses, so a rate-limited yfinance never errors the analytics and prod uses Alpaca.
+    from app.services.move_service import _safe_history
+
+    idx_closes = [p.close for p in _safe_history(provider, "SPY")] or None
     price_risk = R.all_metrics(closes, idx_closes, rf=rf) if len(closes) >= 20 else {
         "available": False, "reason": "no price history from Yahoo (rate-limit/network)"}
 
