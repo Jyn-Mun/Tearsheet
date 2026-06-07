@@ -25,8 +25,35 @@ from app.routes import (
 )
 
 
+def _log_active_providers() -> None:
+    """Print the resolved data sources at startup so the active routing is verifiable from the
+    Render logs. Uses print() (stdout) so it shows regardless of the log-handler config."""
+    dp = settings.data_provider.lower()
+    ds = settings.data_source.lower()
+    market = {"alpaca": "Alpaca", "twelvedata": "Twelve Data",
+              "yfinance": "Yahoo/yfinance"}.get(ds, ds)
+    if dp == "hybrid":
+        fundamentals, prices = "SEC EDGAR", market
+    elif dp == "edgar":
+        fundamentals, prices = "SEC EDGAR", "NONE (EDGAR has no prices)"
+    elif dp == "free":
+        fundamentals, prices = "Yahoo/yfinance", "Yahoo/yfinance"
+    else:  # fixture
+        fundamentals = prices = "fixture (recorded sample)"
+    # ETF history (SPY + sector ETFs) uses the keyed market source when one is configured.
+    etfs = market if (dp != "fixture" and ds in ("alpaca", "twelvedata")) else prices
+
+    print(f"[startup] DATA_PROVIDER={dp} DATA_SOURCE={ds}", flush=True)
+    print(f"[startup] fundamentals -> {fundamentals} | prices/history (stocks) -> {prices} | "
+          f"ETF history (SPY/sector) -> {etfs}", flush=True)
+    if dp in ("hybrid", "free") and ds == "yfinance":
+        print("[startup] WARNING: prices route to yfinance, which Yahoo blocks from datacenter IPs "
+              "(Render) — set DATA_SOURCE=alpaca for live prices/history.", flush=True)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _log_active_providers()
     # Start the in-process pre-fetch scheduler (no-op unless ENABLE_PREFETCH=true). It warms the
     # cache so public requests are served from stored data — never hitting upstream live.
     from app.services.prefetch import start_scheduler
