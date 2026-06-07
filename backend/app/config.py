@@ -83,10 +83,15 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     fred_api_key: str | None = None
 
-    # CORS. In production set FRONTEND_ORIGIN to your exact Netlify URL — the public build
-    # allows ONLY that origin (never "*"). `cors_origins` is the local-dev fallback list.
+    # CORS. Set FRONTEND_ORIGIN to your exact production URL(s) — comma-separated for more than one
+    # (e.g. "https://tearsheet-kappa.vercel.app,https://www.example.com"). `cors_origins` is the
+    # local-dev fallback used only when FRONTEND_ORIGIN is unset.
     frontend_origin: str | None = None
     cors_origins: str = "http://localhost:3000"
+    # Regex matched (in ADDITION to the list above) against the full Origin header, so rotating
+    # preview deployments aren't blocked. Defaults to any https://*.vercel.app host (covers Vercel
+    # production + preview URLs). Override via FRONTEND_ORIGIN_REGEX; set it empty ("") to disable.
+    frontend_origin_regex: str | None = None
 
     # Public build is RESEARCH-ONLY. Any broker/trading/execution routes are guarded by this
     # flag and stay OFF in production. Never enable on a public deploy.
@@ -95,9 +100,17 @@ class Settings(BaseSettings):
     @property
     def allowed_origins(self) -> list[str]:
         if self.frontend_origin:
-            # exact-origin lock for production (comma-separated allowed if you have a preview domain)
+            # exact-origin allow-list for production (comma-separated for >1 domain)
             return [o.strip() for o in self.frontend_origin.split(",") if o.strip()]
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def allowed_origin_regex(self) -> str | None:
+        """Regex for dynamic preview origins, matched against the whole Origin header. Defaults to
+        any *.vercel.app host; FRONTEND_ORIGIN_REGEX overrides it, and an empty string disables it."""
+        if self.frontend_origin_regex is not None:
+            return self.frontend_origin_regex.strip() or None
+        return r"https://[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.vercel\.app"
 
     # Back-compat alias.
     @property

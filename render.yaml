@@ -35,8 +35,13 @@ services:
         value: "true"
       - key: PREFETCH_INTERVAL_HOURS
         value: "6"
-      # CORS lock — set to your exact Netlify URL, e.g. https://tearsheet.netlify.app
+      # CORS — set to your exact production frontend URL, e.g. https://tearsheet-kappa.vercel.app
+      # (comma-separated for more than one).
       - key: FRONTEND_ORIGIN
+        sync: false
+      # Optional: regex for rotating preview deployments. Defaults to https://*.vercel.app, so you
+      # usually do NOT need to set this. Override to narrow it, or set "" to disable previews.
+      - key: FRONTEND_ORIGIN_REGEX
         sync: false
       # Research-only: keep trading OFF in production.
       - key: ENABLE_TRADING

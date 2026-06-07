@@ -78,15 +78,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
 
-# CORS: exact-origin lock. In production FRONTEND_ORIGIN pins this to your Netlify URL only —
-# never "*". GET-only, no credentials needed (public data, no cookies/auth).
+# CORS: an explicit allow-list (FRONTEND_ORIGIN) PLUS a regex for rotating preview deployments
+# (FRONTEND_ORIGIN_REGEX, default https://*.vercel.app) — never "*". An origin is allowed if it is
+# in the list OR matches the regex. GET-only, no credentials needed (public data, no cookies/auth).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
+    allow_origin_regex=settings.allowed_origin_regex,
     allow_credentials=False,
     allow_methods=["GET"],
     allow_headers=["*"],
 )
+print(f"[startup] CORS allow_origins={settings.allowed_origins} "
+      f"allow_origin_regex={settings.allowed_origin_regex!r}", flush=True)
 
 # --- read-only research routers (the entire public surface) ---
 app.include_router(health.router)
