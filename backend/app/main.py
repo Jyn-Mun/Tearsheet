@@ -50,9 +50,23 @@ def _log_active_providers() -> None:
         print("[startup] WARNING: prices route to yfinance, which Yahoo blocks from datacenter IPs "
               "(Render) — set DATA_SOURCE=alpaca for live prices/history.", flush=True)
 
+    # Verify the Alpaca keys are actually loaded at runtime (presence only — NEVER the values).
+    if ds == "alpaca":
+        kid, sec = settings.alpaca_api_key_id, settings.alpaca_api_secret_key
+        print(f"[startup] Alpaca keys loaded: id={'YES' if kid else 'NO (MISSING)'} "
+              f"secret={'YES' if sec else 'NO (MISSING)'} | feed={settings.alpaca_feed} | "
+              f"serve_from_cache_only={settings.serve_from_cache_only}", flush=True)
+        if not (kid and sec):
+            print("[startup] WARNING: Alpaca selected but a key is missing — every price call will "
+                  "no-op (200 with null prices). Set ALPACA_API_KEY_ID / ALPACA_API_SECRET_KEY "
+                  "(or APCA_API_KEY_ID / APCA_API_SECRET_KEY).", flush=True)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from app.logging_config import setup_logging
+
+    setup_logging()  # make tearsheet INFO logs (incl. per-fetch Alpaca lines) visible on the host
     _log_active_providers()
     # Start the in-process pre-fetch scheduler (no-op unless ENABLE_PREFETCH=true). It warms the
     # cache so public requests are served from stored data — never hitting upstream live.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -51,10 +52,17 @@ class Settings(BaseSettings):
     max_history_days: int = 400  # calendar days requested upstream (~252 trading days)
 
     # Alpaca market data (free real-time-ish US equities; IEX feed on the free plan). Keyed API,
-    # so it is NOT IP-blocked like Yahoo. Keys from env only.
-    alpaca_api_key_id: str | None = None
-    alpaca_api_secret_key: str | None = None
+    # so it is NOT IP-blocked like Yahoo. Keys from env only. Accept BOTH our ALPACA_* names and
+    # Alpaca's own SDK convention APCA_API_KEY_ID / APCA_API_SECRET_KEY — setting the latter on the
+    # host is a common reason the keys appear "missing" and every price call silently no-ops.
+    alpaca_api_key_id: str | None = Field(
+        default=None, validation_alias=AliasChoices("ALPACA_API_KEY_ID", "APCA_API_KEY_ID"))
+    alpaca_api_secret_key: str | None = Field(
+        default=None, validation_alias=AliasChoices("ALPACA_API_SECRET_KEY", "APCA_API_SECRET_KEY"))
     alpaca_data_url: str = "https://data.alpaca.markets"
+    # Alpaca data feed. FREE tier = "iex" (SIP requires a paid subscription and returns empty on
+    # free). Every market-data call sends this explicitly. Set to "sip" only if you upgrade.
+    alpaca_feed: str = "iex"
 
     # Twelve Data (alternative keyed market source; 800 calls/day free).
     twelvedata_api_key: str | None = None
