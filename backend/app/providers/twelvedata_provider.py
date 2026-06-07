@@ -104,7 +104,11 @@ class TwelveDataProvider:
         cached = cache.get(f"td:hist:{ticker}", read_ttl(_TTL))
         if cached is not None:
             return [PricePoint(**p) for p in cached]
-        data = self._get("time_series", symbol=ticker, interval="1day", outputsize=520, order="ASC")
+        # Memory guard: cap the number of daily bars to max_history_days (default ~1y).
+        from app.config import settings
+
+        data = self._get("time_series", symbol=ticker, interval="1day",
+                         outputsize=settings.max_history_days, order="ASC")
         pts: list[PricePoint] = []
         values = data.get("values") if isinstance(data, dict) else None
         if isinstance(values, list):

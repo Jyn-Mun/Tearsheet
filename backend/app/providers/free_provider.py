@@ -70,6 +70,24 @@ def _cell(series, col) -> float | None:
 _PRICE_TTL = 60 * 5  # ~5 minutes for prices/quotes (delayed/EOD anyway)
 
 
+def _hist_period() -> str:
+    """yfinance `period` string honoring the configured history cap (memory guard)."""
+    from app.config import settings
+
+    days = settings.max_history_days
+    if days <= 35:
+        return "1mo"
+    if days <= 100:
+        return "3mo"
+    if days <= 200:
+        return "6mo"
+    if days <= 400:
+        return "1y"
+    if days <= 760:
+        return "2y"
+    return "5y"
+
+
 class FreeProvider(DataProvider):
     name = "yfinance"
 
@@ -168,12 +186,17 @@ class FreeProvider(DataProvider):
         pts: list[PricePoint] = []
         try:
             t = self._ticker(ticker)
-            hist = self._yf(lambda: t.history(period="2y", interval="1d"))
+            hist = self._yf(lambda: t.history(period=_hist_period(), interval="1d"))
             if hist is not None and not hist.empty:
-                for idx, v in hist["Close"].dropna().items():
+                # Pull only the Close column, then drop the whole DataFrame so it doesn't sit in
+                # RAM for the rest of the call.
+                closes = hist["Close"].dropna()
+                del hist
+                for idx, v in closes.items():
                     fv = _f(v)
                     if fv is not None:
                         pts.append(PricePoint(date=idx.date().isoformat(), close=fv))
+                del closes
         except Exception:
             pts = []
         # Cache even an empty result (short TTL) so a blocked Yahoo doesn't re-trigger backoff
@@ -282,14 +305,16 @@ class FreeProvider(DataProvider):
         prev = _f(info.get("previousClose")) or _f(info.get("regularMarketPreviousClose"))
         history: list[PricePoint] = []
         try:
-            hist = t.history(period="2y", interval="1d")
+            hist = t.history(period=_hist_period(), interval="1d")
             if hist is not None and not hist.empty:
                 closes = hist["Close"].dropna()
+                del hist  # keep only the Close series; release the full OHLCV frame
                 history = [
                     PricePoint(date=idx.date().isoformat(), close=_f(v))
                     for idx, v in closes.items()
                     if _f(v) is not None
                 ]
+                del closes
                 if current is None and history:
                     current = history[-1].close
                 if prev is None and len(history) >= 2:
@@ -409,6 +434,14 @@ class FreeProvider(DataProvider):
         payload.financials = fin
         if fin.income or fin.balance or fin.cashflow:
             payload.provenance["financials"] = prov
+
+        # We've extracted every value we need into `fin` (small dataclasses). Drop the heavy
+        # pandas DataFrames now so they're garbage-collected instead of lingering for the rest of
+        # the request — statement frames can be several MB each.
+        del inc, bal, cf
+        import gc
+
+        gc.collect()
 
     def _fill_earnings(self, payload, t, prov) -> None:
         try:

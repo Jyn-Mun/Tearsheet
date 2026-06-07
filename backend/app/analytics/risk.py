@@ -14,12 +14,16 @@ Definitions:
 
 from __future__ import annotations
 
-import numpy as np
+# numpy is imported lazily inside each function (not at module top) so importing this module — which
+# happens at app startup via the analytics router — does NOT pull ~35MB of numpy into the single
+# Render worker until a price/risk metric is actually computed.
 
 _TRADING_DAYS = 252
 
 
-def _returns(closes: list[float]) -> np.ndarray:
+def _returns(closes: list[float]) -> "object":
+    import numpy as np
+
     a = np.asarray([c for c in closes if c is not None], dtype=float)
     if a.size < 2:
         return np.array([])
@@ -27,6 +31,8 @@ def _returns(closes: list[float]) -> np.ndarray:
 
 
 def annualized_vol(closes: list[float]) -> dict:
+    import numpy as np
+
     r = _returns(closes)
     if r.size < 20:
         return {"value": None, "n": int(r.size), "reason": "need ≥20 daily returns"}
@@ -34,6 +40,8 @@ def annualized_vol(closes: list[float]) -> dict:
 
 
 def sharpe(closes: list[float], rf: float = 0.0) -> dict:
+    import numpy as np
+
     r = _returns(closes)
     if r.size < 20 or r.std() == 0:
         return {"value": None, "n": int(r.size)}
@@ -43,6 +51,8 @@ def sharpe(closes: list[float], rf: float = 0.0) -> dict:
 
 
 def sortino(closes: list[float], rf: float = 0.0) -> dict:
+    import numpy as np
+
     r = _returns(closes)
     downside = r[r < 0]
     if r.size < 20 or downside.size == 0 or downside.std() == 0:
@@ -53,6 +63,8 @@ def sortino(closes: list[float], rf: float = 0.0) -> dict:
 
 
 def max_drawdown(closes: list[float]) -> dict:
+    import numpy as np
+
     a = np.asarray([c for c in closes if c is not None], dtype=float)
     if a.size < 2:
         return {"value": None, "n": int(a.size)}
@@ -62,6 +74,8 @@ def max_drawdown(closes: list[float]) -> dict:
 
 
 def beta_corr(stock_closes: list[float], index_closes: list[float]) -> dict:
+    import numpy as np
+
     s, m = _returns(stock_closes), _returns(index_closes)
     n = min(s.size, m.size)
     if n < 30:
@@ -82,6 +96,8 @@ def momentum_12_1(closes: list[float]) -> dict:
 
 
 def rsi(closes: list[float], period: int = 14) -> dict:
+    import numpy as np
+
     a = np.asarray([c for c in closes if c is not None], dtype=float)
     if a.size < period + 1:
         return {"value": None, "n": int(a.size)}
@@ -97,6 +113,8 @@ def rsi(closes: list[float], period: int = 14) -> dict:
 
 
 def moving_averages(closes: list[float]) -> dict:
+    import numpy as np
+
     a = np.asarray([c for c in closes if c is not None], dtype=float)
     cur = float(a[-1]) if a.size else None
     ma50 = float(a[-50:].mean()) if a.size >= 50 else None

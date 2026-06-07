@@ -36,14 +36,19 @@ class Settings(BaseSettings):
     # served from stored data. Runs in-process when ENABLE_PREFETCH is true.
     enable_prefetch: bool = False
     prefetch_interval_hours: float = 6.0
-    prefetch_tickers: str = (
-        "AAPL,MSFT,NVDA,GOOGL,AMZN,META,TSLA,AVGO,AMD,INTC,JPM,V,JNJ,WMT,PG,XOM,"
-        "KO,PEP,COST,HD,UNH,DIS,NFLX,CRM,ORCL"
-    )
+    # Keep this list SHORT on the 512MB free tier — the prefetch job warms one ticker at a time,
+    # but a long list means more cached payloads and a longer warm cycle. ~10 is plenty.
+    prefetch_tickers: str = "AAPL,MSFT,NVDA,GOOGL,AMZN,META,TSLA,JPM,V,UNH"
 
     @property
     def prefetch_ticker_list(self) -> list[str]:
         return [t.strip().upper() for t in self.prefetch_tickers.split(",") if t.strip()]
+
+    # Memory guard: cap how much daily price history we ever fetch/keep. ~1 trading year (252
+    # bars) covers the 52-week range, beta, and 200-day MA with margin; "max" history would hold
+    # thousands of points per ticker in RAM and in every cached payload. Bump only if you need
+    # longer charts and have the headroom.
+    max_history_days: int = 400  # calendar days requested upstream (~252 trading days)
 
     # Alpaca market data (free real-time-ish US equities; IEX feed on the free plan). Keyed API,
     # so it is NOT IP-blocked like Yahoo. Keys from env only.

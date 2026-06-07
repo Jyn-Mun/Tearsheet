@@ -1,1 +1,4 @@
-web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+# ONE uvicorn worker only — each worker is a full Python heap (~150MB+); a second worker would
+# blow the Render free 512MB limit. Keep --workers 1. --limit-concurrency caps in-flight requests
+# so a burst can't balloon memory.
+web: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --limit-concurrency 16

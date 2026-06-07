@@ -115,9 +115,13 @@ class AlpacaProvider:
         cached = cache.get(f"alpaca:hist:{ticker}", read_ttl(_TTL))
         if cached is not None:
             return [PricePoint(**p) for p in cached]
-        start = (datetime.now(timezone.utc) - timedelta(days=760)).date().isoformat()
+        # Memory guard: only request as far back as max_history_days (default ~1y) instead of a
+        # fixed 2y window — fewer bars per ticker in RAM and in the cached payload.
+        start = (datetime.now(timezone.utc)
+                 - timedelta(days=settings.max_history_days)).date().isoformat()
         data = self._get(f"{self._base}/v2/stocks/{ticker}/bars",
-                         timeframe="1Day", start=start, limit=1000, adjustment="all", feed="iex")
+                         timeframe="1Day", start=start, limit=settings.max_history_days,
+                         adjustment="all", feed="iex")
         pts: list[PricePoint] = []
         bars = data.get("bars") if isinstance(data, dict) else None
         if isinstance(bars, list):

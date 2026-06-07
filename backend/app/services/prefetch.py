@@ -13,6 +13,7 @@ The ticker list is configurable via PREFETCH_TICKERS (comma-separated env).
 
 from __future__ import annotations
 
+import gc
 import time
 
 from app.cache_policy import live_fetch
@@ -22,7 +23,12 @@ from app.services.move_service import _INDEX, _SECTOR_ETF
 
 
 def prefetch_once() -> dict:
-    """Fetch the configured tickers (+ index + sector ETFs) live and store them in the cache."""
+    """Fetch the configured tickers (+ index + sector ETFs) live and store them in the cache.
+
+    Memory-safe by design for the 512MB free tier: process ONE ticker at a time, write it straight
+    to the on-disk cache, then drop every reference and force a GC sweep before moving on. We never
+    hold more than a single ticker's data (and its transient dataframes) in RAM at once.
+    """
     provider = get_provider("live")
     tickers = settings.prefetch_ticker_list
     etfs = [_INDEX] + sorted(set(_SECTOR_ETF.values()))
@@ -31,16 +37,24 @@ def prefetch_once() -> dict:
     with live_fetch():  # the ONLY place allowed to hit upstream in cache-only mode
         for tk in tickers:
             try:
-                p = provider.retrieve(tk)            # warms EDGAR + market caches
+                p = provider.retrieve(tk)            # warms EDGAR + market caches (written to disk)
                 provider.price_history(tk)           # warms history cache (charts/risk/move)
                 ok += 1 if (p.financials.income or p.price.current is not None) else 0
             except Exception:
                 fail += 1
+            finally:
+                # Release this ticker's payload + any dataframes before the next one. The cache is
+                # on disk, so nothing is lost — we just stop holding it in memory.
+                p = None
+                del p
+                gc.collect()
         for etf in etfs:                              # warm index + sector ETF history
             try:
                 provider.price_history(etf)
             except Exception:
                 pass
+            finally:
+                gc.collect()
     return {"tickers": len(tickers), "etfs": len(etfs), "ok": ok, "fail": fail,
             "seconds": round(time.time() - started, 1)}
 

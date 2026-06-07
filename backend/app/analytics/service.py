@@ -5,8 +5,6 @@ input is missing. The optional LLM layer (analysis_service) sits on top for pros
 
 from __future__ import annotations
 
-import numpy as np
-
 from app.analytics import risk as R
 from app.analytics import scores as S
 from app.analytics.rules import run_rules
@@ -42,7 +40,8 @@ def _percentile(value: float | None, peers: list[float]) -> float | None:
     pool = [v for v in peers + ([value] if value is not None else []) if v is not None]
     if value is None or len(pool) < 3:
         return None
-    return float(100.0 * np.mean([1.0 if p <= value else 0.0 for p in pool]))
+    # Plain-Python percentile (share of pool ≤ value) — avoids importing numpy just for a mean.
+    return 100.0 * sum(1 for p in pool if p <= value) / len(pool)
 
 
 def _market_implied_growth(payload: CompanyPayload) -> dict:
