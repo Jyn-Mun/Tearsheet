@@ -8,6 +8,11 @@ import {
 } from "@/components/panels";
 
 const DEFAULT = "NVDA";
+// Steer users toward covered, liquid US names (the backend is US-listed equities only).
+const SUGGESTED = ["NVDA", "MSFT", "AAPL", "GOOGL", "AMZN", "META"];
+// US ticker format: 1–5 letters, optional class suffix (e.g. BRK.B). Rejects ISINs, numbers,
+// foreign formats (e.g. "7203.T", "VOD.L") before firing a doomed lookup.
+const US_TICKER = /^[A-Z]{1,5}(\.[A-Z])?$/;
 
 export default function Home() {
   const [ticker, setTicker] = useState(DEFAULT);
@@ -15,6 +20,7 @@ export default function Home() {
   const [mode, setMode] = useState<Mode>("live");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [recent, setRecent] = useState<string[]>([DEFAULT]);
+  const [hint, setHint] = useState("");
   // Retry a few times with backoff — covers Render free-tier cold starts (server waking ~30–60s).
   const health = useQuery({
     queryKey: ["health"],
@@ -49,7 +55,21 @@ export default function Home() {
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const v = input.trim().toUpperCase();
-    if (v) { setTicker(v); setInput(""); }
+    if (!v) return;
+    if (!US_TICKER.test(v)) {
+      setHint("Enter a US ticker symbol like NVDA, MSFT, or AAPL.");
+      return;
+    }
+    setHint("");
+    setTicker(v);
+    setInput("");
+  }
+
+  // Load a covered name directly (suggested chip / steering). Stays in the current mode.
+  function pick(tk: string) {
+    setHint("");
+    setInput("");
+    setTicker(tk);
   }
 
   const ok = health.data?.status === "ok";
@@ -91,9 +111,25 @@ export default function Home() {
         <form onSubmit={submit}>
           <input
             className="search" placeholder="TICKER" value={input}
-            onChange={(e) => setInput(e.target.value)} aria-label="ticker search" spellCheck={false}
+            onChange={(e) => { setInput(e.target.value); if (hint) setHint(""); }}
+            aria-label="ticker search" spellCheck={false}
           />
         </form>
+        <div className="subtle" style={{ fontSize: 11, marginTop: 6, lineHeight: 1.4 }}>
+          {hint || "US-listed stocks only — enter a ticker symbol like NVDA, MSFT, AAPL."}
+        </div>
+        <div className="chips" style={{ marginTop: 8 }}>
+          {SUGGESTED.map((s) => (
+            <button
+              key={s}
+              className={`chip ${s === ticker ? "on" : ""}`}
+              onClick={() => pick(s)}
+              title={`Look up ${s}`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
 
         <div className="rail-label">Recent</div>
         <ul className="recent">
