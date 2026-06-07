@@ -95,8 +95,12 @@ export default function Home() {
 
         <div className="rail-label">Theme</div>
         <div className="seg" role="group" aria-label="theme">
-          <button className={theme === "dark" ? "on" : ""} onClick={() => applyTheme("dark")}>Dark</button>
-          <button className={theme === "light" ? "on" : ""} onClick={() => applyTheme("light")}>Cream</button>
+          <button className={theme === "dark" ? "on" : ""} onClick={() => applyTheme("dark")} aria-label="Dark theme">
+            <span className="lbl-text">Dark</span><span className="lbl-icon" aria-hidden>☾</span>
+          </button>
+          <button className={theme === "light" ? "on" : ""} onClick={() => applyTheme("light")} aria-label="Cream theme">
+            <span className="lbl-text">Cream</span><span className="lbl-icon" aria-hidden>☀</span>
+          </button>
         </div>
 
         <div className="rail-label">Data source</div>

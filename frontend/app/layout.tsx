@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Syne, Inter, JetBrains_Mono } from "next/font/google";
 import { Providers } from "./providers";
@@ -12,6 +12,14 @@ const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", weigh
 export const metadata: Metadata = {
   title: "Tearsheet — equity research terminal",
   description: "An AI equity-research terminal. Research tool, not financial advice.",
+};
+
+// Without this the page renders at ~980px on phones and looks zoomed-out / cut off.
+// device-width + viewport-fit:cover makes it fill the iPhone screen edge to edge.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

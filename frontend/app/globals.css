@@ -52,6 +52,9 @@
 html, body {
   margin: 0;
   padding: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;            /* guard: nothing may push the page wider than the screen */
   background: var(--bg);
   color: var(--text);
   font-family: var(--sans);
@@ -79,7 +82,7 @@ html, body {
   position: sticky; top: 0; height: 100vh; overflow-y: auto;
   background: var(--rail-bg);
 }
-.main { padding: 26px 30px 72px; max-width: 1120px; }
+.main { padding: clamp(16px, 4vw, 26px) clamp(14px, 4vw, 30px) 72px; max-width: 1120px; width: 100%; }
 @media (max-width: 820px) {
   .app { grid-template-columns: 1fr; }
   .rail { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
@@ -228,7 +231,7 @@ a.src:hover { color: var(--accent); }
 /* =================================================================
    LANDING PAGE
    ================================================================= */
-.lp { max-width: 1140px; margin: 0 auto; padding: 0 24px 64px; }
+.lp { max-width: 1140px; margin: 0 auto; padding: 0 clamp(16px, 5vw, 24px) 64px; width: 100%; }
 .lp h1, .lp h2, .lp h3 { font-family: var(--display); letter-spacing: -0.02em; line-height: 1.04; }
 
 .lp-nav {
@@ -270,7 +273,7 @@ a.src:hover { color: var(--accent); }
 .theme-mini button.on { background: var(--accent); color: #1a1408; }
 
 /* hero */
-.hero { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center; padding: 56px 0 40px; }
+.hero { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: clamp(24px, 4vw, 40px); align-items: center; padding: clamp(28px, 6vw, 56px) 0 40px; }
 @media (max-width: 900px) { .hero { grid-template-columns: 1fr; gap: 28px; } }
 .hero h1 { font-size: clamp(40px, 6vw, 68px); font-weight: 800; margin: 0 0 18px; }
 .hero h1 .gold { color: var(--accent); }
@@ -300,14 +303,14 @@ a.src:hover { color: var(--accent); }
 .preview svg { display: block; width: 100%; height: 60px; margin-top: 12px; }
 
 /* sections */
-.lp-section { padding: 54px 0; }
+.lp-section { padding: clamp(32px, 6vw, 54px) 0; }
 .lp-section .kicker { font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); margin-bottom: 10px; }
 .lp-section h2 { font-size: clamp(28px, 4vw, 40px); font-weight: 700; margin: 0 0 14px; max-width: 720px; }
 .lp-section .sub { color: var(--text-muted); font-size: 16px; max-width: 640px; line-height: 1.55; }
 
 .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 34px; }
 @media (max-width: 820px) { .feat-grid { grid-template-columns: 1fr; } }
-.feat-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--r); padding: 24px; box-shadow: var(--shadow); }
+.feat-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--r); padding: clamp(18px, 4vw, 24px); box-shadow: var(--shadow); }
 .feat-card.featured { background: var(--feature); color: var(--feature-ink); border-color: transparent; }
 .feat-card .ficon {
   width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center;
@@ -345,11 +348,12 @@ a.src:hover { color: var(--accent); }
 
 /* cta band */
 .cta-band {
-  background: var(--feature); color: var(--feature-ink); border-radius: 20px; padding: 40px;
+  background: var(--feature); color: var(--feature-ink); border-radius: 20px;
+  padding: clamp(24px, 5vw, 40px);
   display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;
   margin: 40px 0;
 }
-.cta-band h2 { font-size: 30px; font-weight: 800; margin: 0; }
+.cta-band h2 { font-size: clamp(22px, 4vw, 30px); font-weight: 800; margin: 0; }
 .cta-band p { margin: 6px 0 0; opacity: 0.7; font-size: 15px; }
 
 /* faq */
@@ -372,3 +376,23 @@ a.src:hover { color: var(--accent); }
   color: var(--text-muted); font-size: 13px;
 }
 .lp-footer .mono { font-size: 11.5px; }
+
+/* =================================================================
+   RESPONSIVE — phone refinements
+   ================================================================= */
+/* Theme toggle: show the moon/sun glyph instead of the word on phones (saves space, no clipping). */
+.lbl-icon { display: none; }
+@media (max-width: 600px) {
+  .theme-mini .lbl-text, .seg .lbl-text { display: none; }
+  .theme-mini .lbl-icon, .seg .lbl-icon { display: inline; font-size: 15px; line-height: 1; }
+  .theme-mini button { padding: 7px 12px; }
+}
+
+/* Wide data tables scroll horizontally instead of stretching the page off-screen. */
+@media (max-width: 560px) {
+  table.t { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap; }
+  .module { padding: 16px 14px; }
+  .headline .px { font-size: clamp(24px, 8vw, 31px); }
+  .preview { padding: clamp(16px, 5vw, 22px); }
+  .preview .pv-px { font-size: clamp(26px, 9vw, 34px); }
+}

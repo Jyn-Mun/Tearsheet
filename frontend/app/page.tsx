@@ -25,8 +25,12 @@ export default function Landing() {
           <a href="#how">How it works</a>
           <a href="#faq">FAQ</a>
           <div className="theme-mini" role="group" aria-label="theme">
-            <button className={theme === "dark" ? "on" : ""} onClick={() => applyTheme("dark")}>Dark</button>
-            <button className={theme === "light" ? "on" : ""} onClick={() => applyTheme("light")}>Cream</button>
+            <button className={theme === "dark" ? "on" : ""} onClick={() => applyTheme("dark")} aria-label="Dark theme">
+              <span className="lbl-text">Dark</span><span className="lbl-icon" aria-hidden>☾</span>
+            </button>
+            <button className={theme === "light" ? "on" : ""} onClick={() => applyTheme("light")} aria-label="Cream theme">
+              <span className="lbl-text">Cream</span><span className="lbl-icon" aria-hidden>☀</span>
+            </button>
           </div>
           <Link className="btn btn-primary btn-sm cta" href="/terminal">Launch terminal →</Link>
         </div>
