@@ -193,6 +193,16 @@ export default function Home() {
         <Financials ticker={ticker} index={8} mode={mode} />
         <News ticker={ticker} index={9} mode={mode} />
 
+        <div className="back-top-row">
+          <button
+            className="back-top"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            aria-label="Back to top"
+          >
+            ↑ Back to top
+          </button>
+        </div>
+
         <div className="footer">
           Generated from public sources · research tool, not financial advice · no buy/sell/hold, no price target<br />
           {mode === "live" ? "Live data: SEC EDGAR (fundamentals) plus Alpaca (market)." : "Offline snapshot data."} · provenance traced per figure · {new Date().getUTCFullYear()} · Tearsheet
