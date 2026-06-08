@@ -142,7 +142,7 @@ def build_analytics(payload: CompanyPayload, provider: DataProvider) -> dict:
 
     idx_closes = [p.close for p in _safe_history(provider, "SPY")] or None
     price_risk = R.all_metrics(closes, idx_closes, rf=rf) if len(closes) >= 20 else {
-        "available": False, "reason": "no price history from Yahoo (rate-limit/network)"}
+        "available": False, "reason": "no price history available (rate limit or network)"}
 
     # --- events (reuse the event-analytics module) ---
     events = build_events(payload)
@@ -182,6 +182,6 @@ def build_analytics(payload: CompanyPayload, provider: DataProvider) -> dict:
         "peers": peers,
         "interpretation": interpretation,
         "warnings": payload.warnings,
-        "disclaimer": "Deterministic analytics from free sources (SEC EDGAR + Yahoo). "
-                      "Research tool, not advice — no buy/sell/hold.",
+        "disclaimer": "Deterministic analytics from free sources (SEC EDGAR + Alpaca). "
+                      "Research tool, not advice. No buy, sell, or hold.",
     }

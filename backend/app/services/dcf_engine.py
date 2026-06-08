@@ -251,7 +251,7 @@ def build_assumptions(payload: CompanyPayload, risk_free: float | None = None) -
             "ebit_margin": "held at trailing operating margin",
             "tax_rate": "latest effective rate" if tax_rate != DEFAULT_TAX_RATE else "default 21%",
             "risk_free": "FRED DGS10 if key present, else 4.3% fallback",
-            "beta": "Yahoo beta if available, else 1.0",
+            "beta": "market beta if available, else 1.0",
             "erp": "assumption 5.0%",
             "cost_of_debt": "interest/total debt if derivable, else rf + 1.5% spread",
             "da_pct_rev": f"{da_pct:.1%} of revenue (trailing avg)",

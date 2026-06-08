@@ -1,6 +1,6 @@
 "use client";
 
-// Minimal dependency-free SVG sparkline — no heavy chart kit (per DESIGN.md).
+// Minimal dependency-free SVG sparkline - no heavy chart kit (per DESIGN.md).
 export function Sparkline({ data, color = "var(--accent)" }: { data: number[]; color?: string }) {
   if (!data || data.length < 2) return <div className="subtle">no price history</div>;
   const w = 100, h = 28, pad = 2;

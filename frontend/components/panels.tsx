@@ -18,10 +18,10 @@ function srcLink(url?: string | null) {
 
 function sampleBanner(source?: string) {
   if (source && source.includes("snapshot")) {
-    return <div className="banner">⊙ Recorded SNAPSHOT (real data, point-in-time) — switch to Live for current figures.</div>;
+    return <div className="banner">⊙ Recorded SNAPSHOT (real data, point-in-time). Switch to Live for current figures.</div>;
   }
   if (source && source.includes("fixture")) {
-    return <div className="banner">⚠ Synthetic SAMPLE data — not live market data.</div>;
+    return <div className="banner">⚠ Synthetic SAMPLE data, not live market data.</div>;
   }
   return null;
 }
@@ -46,8 +46,8 @@ function OverviewBody({ d, mode }: { d: any; mode: Mode }) {
         <div style={{ color: "var(--accent)", marginBottom: 6 }}>Limited data available for {d.ticker}.</div>
         <div style={{ fontSize: 13 }}>
           {mode === "offline"
-            ? "Offline mode serves a fixed set of sample companies — pick one from the list."
-            : "This tool covers US-listed equities — try a major name like NVDA or MSFT."}
+            ? "Offline mode serves a fixed set of sample companies. Pick one from the list."
+            : "This tool covers US-listed equities. Try a major name like NVDA or MSFT."}
         </div>
       </div>
     );
@@ -81,7 +81,7 @@ function OverviewBody({ d, mode }: { d: any; mode: Mode }) {
       <div style={{ marginTop: 12 }}>
         <Sparkline data={d.sparkline ?? []} color="auto" />
         <div className="subtle">
-          52w {money(p.fifty_two_week_low)} – {money(p.fifty_two_week_high)} · mkt cap {bigMoney(p.market_cap)} · β {num(p.beta)}
+          52w {money(p.fifty_two_week_low)} to {money(p.fifty_two_week_high)} · mkt cap {bigMoney(p.market_cap)} · β {num(p.beta)}
         </div>
       </div>
       <div className="kv">
@@ -174,7 +174,7 @@ function ValuationBody({ d }: { d: any }) {
         <Metric k="Div yield" v={pctPlain(m.dividend_yield, 2)} />
       </div>
       <div className="subtle" style={{ marginTop: 12 }}>
-        Peers — <span className="pill">sector approximation</span>
+        Peers <span className="pill">sector approximation</span>
       </div>
       {d.peers.count > 0 ? (
         <table className="t" style={{ marginTop: 8 }}>
@@ -189,7 +189,7 @@ function ValuationBody({ d }: { d: any }) {
               </tr>
             ))}
             <tr>
-              <td className="accent">median</td><td>—</td>
+              <td className="accent">median</td><td>{NA}</td>
               <td>{mult(d.peers.median.pe_ttm)}</td><td>{mult(d.peers.median.ev_ebitda)}</td>
               <td>{mult(d.peers.median.ps)}</td><td>{mult(d.peers.median.pb)}</td>
             </tr>
@@ -235,7 +235,7 @@ function DcfBody({ d }: { d: any }) {
         <span><span className="k">vs price {money(d.current_price)}</span>
           <div className={`px ${deltaClass(o.upside_vs_price)}`}>{pct(o.upside_vs_price)}</div></span>
       </div>
-      <div className="disc">Model output with stated assumptions — not a recommendation or price target.</div>
+      <div className="disc">Model output with stated assumptions, not a recommendation or price target.</div>
       {(d.flags ?? []).map((f: any, i: number) => (
         <span key={i} className={`pill ${f.level === "error" ? "bad" : "warn"}`} style={{ margin: "8px 6px 0 0" }}>{f.msg}</span>
       ))}
@@ -249,7 +249,7 @@ function DcfBody({ d }: { d: any }) {
         <Metric k="Risk-free" v={pctPlain(a.risk_free, 2)} />
         <Metric k="EV" v={bigMoney(o.enterprise_value)} />
       </div>
-      <div className="subtle" style={{ margin: "14px 0 6px" }}>Projection — unlevered FCF (B)</div>
+      <div className="subtle" style={{ margin: "14px 0 6px" }}>Projection: unlevered FCF (B)</div>
       <table className="t">
         <thead>
           <tr><th>Year</th><th>Rev</th><th>EBIT</th><th>uFCF</th><th>PV(FCF)</th></tr>
@@ -271,7 +271,7 @@ function Sensitivity({ sens, price }: { sens: any; price: number }) {
   if (!sens) return null;
   return (
     <>
-      <div className="subtle" style={{ margin: "14px 0 6px" }}>Sensitivity — intrinsic / share · WACC (rows) × terminal g (cols)</div>
+      <div className="subtle" style={{ margin: "14px 0 6px" }}>Sensitivity: intrinsic / share · WACC (rows) × terminal g (cols)</div>
       <table className="t">
         <thead>
           <tr><th>WACC ╲ g</th>{sens.growths.map((g: number, i: number) => <th key={i}>{pctPlain(g)}</th>)}</tr>
@@ -296,7 +296,7 @@ function Sensitivity({ sens, price }: { sens: any; price: number }) {
 export function Analysis({ ticker, index, mode }: { ticker: string; index: number; mode: Mode }) {
   const q = useEndpoint(["analysis", ticker, mode], () => api.analysis(ticker, mode));
   return (
-    <Module title="Analysis — AI thesis" index={index}
+    <Module title="Analysis: AI thesis" index={index}
       right={q.data ? <span className={`pill ${q.data.ai_enabled ? "good" : ""}`}>{q.data.ai_enabled ? q.data.analysis.synthesizer : "AI off"}</span> : null}>
       {q.isLoading && <Loading />}
       {q.isError && <ErrBox msg={(q.error as Error).message} />}
@@ -395,7 +395,7 @@ function EventsBody({ d }: { d: any }) {
 export function Interpretation({ ticker, index, mode }: { ticker: string; index: number; mode: Mode }) {
   const q = useEndpoint(["interpret", ticker, mode], () => api.interpret(ticker, mode));
   return (
-    <Module title="Interpretation — what it means" index={index}
+    <Module title="Interpretation: what it means" index={index}
       right={q.data ? <span className={`pill ${q.data.coherence === "conflicting" ? "warn" : "good"}`}>{q.data.coherence}</span> : null}>
       {q.isLoading && <Loading />}
       {q.isError && <ErrBox msg={(q.error as Error).message} />}
@@ -492,7 +492,7 @@ function MoveBody({ d }: { d: any }) {
 export function Analytics({ ticker, index, mode }: { ticker: string; index: number; mode: Mode }) {
   const q = useEndpoint(["analytics", ticker, mode], () => api.analytics(ticker, mode));
   return (
-    <Module title="Analytics — scores & rules (no AI)" index={index}
+    <Module title="Analytics: scores & rules (no AI)" index={index}
       right={<span className="muted">deterministic</span>}>
       {q.isLoading && <Loading />}
       {q.isError && <ErrBox msg={(q.error as Error).message} />}
@@ -570,11 +570,11 @@ function AnalyticsBody({ d }: { d: any }) {
           </div>
         </>
       ) : (
-        <div className="subtle" style={{ marginTop: 12 }}>Price/risk needs market data (Yahoo) — n/a from this source.</div>
+        <div className="subtle" style={{ marginTop: 12 }}>Price/risk needs market data (Alpaca), n/a from this source.</div>
       )}
 
       {/* peer percentiles */}
-      <div className="subtle accent" style={{ margin: "16px 0 6px" }}>PEER PERCENTILE — {(d.peers?.peer_set ?? []).join(", ") || "n/a"}</div>
+      <div className="subtle accent" style={{ margin: "16px 0 6px" }}>PEER PERCENTILE · {(d.peers?.peer_set ?? []).join(", ") || "n/a"}</div>
       <div className="kv">
         {score("Op. margin", pk.operating_margin != null ? `${Math.round(pk.operating_margin)}th` : NA, "vs peers")}
         {score("P/E", pk.pe_ttm != null ? `${Math.round(pk.pe_ttm)}th` : NA, "vs peers")}
@@ -608,18 +608,23 @@ function NewsBody({ d }: { d: any }) {
           ))}
         </ul>
       )}
-      <table className="t">
-        <tbody>
-          {d.headlines.slice(0, 8).map((h: any, i: number) => (
-            <tr key={i}>
-              <td style={{ fontFamily: "var(--sans)", color: "var(--text)" }}>
-                {h.url ? <a className="src" style={{ color: "var(--text)", fontSize: 13 }} href={h.url} target="_blank" rel="noreferrer">{h.title}</a> : h.title}
-              </td>
-              <td className="muted">{shortDate(h.published)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="news-list">
+        {d.headlines.slice(0, 8).map((h: any, i: number) => (
+          <div className="news-item" key={i}>
+            <div className="news-row">
+              {h.url ? (
+                <a className="news-title" href={h.url} target="_blank" rel="noreferrer" title={h.title}>{h.title}</a>
+              ) : (
+                <span className="news-title" title={h.title}>{h.title}</span>
+              )}
+              {h.url && (
+                <a className="news-more" href={h.url} target="_blank" rel="noreferrer">Read more</a>
+              )}
+            </div>
+            {h.published && <div className="news-date">{shortDate(h.published)}</div>}
+          </div>
+        ))}
+      </div>
       <div className="disc">{d.disclaimer}</div>
     </>
   );

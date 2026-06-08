@@ -1,40 +1,11 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { SiteNav, SiteFooter } from "@/components/SiteChrome";
+import { FeatureCarousel } from "@/components/Features";
 
 export default function Landing() {
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
-  useEffect(() => {
-    const saved = (localStorage.getItem("theme") as "dark" | "light") || "dark";
-    setTheme(saved);
-    document.documentElement.setAttribute("data-theme", saved);
-  }, []);
-  function applyTheme(t: "dark" | "light") {
-    setTheme(t);
-    document.documentElement.setAttribute("data-theme", t);
-    localStorage.setItem("theme", t);
-  }
-
   return (
     <div className="lp">
-      <nav className="lp-nav">
-        <div className="brand">Tearsheet<span className="dot">.</span></div>
-        <div className="links">
-          <a href="#features">Features</a>
-          <a href="#how">How it works</a>
-          <a href="#faq">FAQ</a>
-          <div className="theme-mini" role="group" aria-label="theme">
-            <button className={theme === "dark" ? "on" : ""} onClick={() => applyTheme("dark")} aria-label="Dark theme">
-              <span className="lbl-text">Dark</span><span className="lbl-icon" aria-hidden>☾</span>
-            </button>
-            <button className={theme === "light" ? "on" : ""} onClick={() => applyTheme("light")} aria-label="Cream theme">
-              <span className="lbl-text">Cream</span><span className="lbl-icon" aria-hidden>☀</span>
-            </button>
-          </div>
-          <Link className="btn btn-primary btn-sm cta" href="/terminal">Launch terminal →</Link>
-        </div>
-      </nav>
+      <SiteNav />
 
       {/* HERO */}
       <header className="hero">
@@ -44,13 +15,13 @@ export default function Landing() {
             Equity research that <span className="gold">reasons</span>, not just reports.
           </h1>
           <p className="lede">
-            Enter a ticker and get a sourced, structured brief — fundamentals, a transparent DCF,
-            peers, and a falsifiable bull/bear thesis. Every number traces to its source. It even
-            scores its own accuracy.
+            Enter a ticker and get a sourced, structured brief: fundamentals, a transparent DCF,
+            peers, and a falsifiable bull and bear thesis. Every number traces back to its source,
+            and the model scores its own accuracy.
           </p>
           <div className="cta-row">
             <Link className="btn btn-primary" href="/terminal">Launch the terminal →</Link>
-            <a className="btn btn-ghost" href="#how">See how it works</a>
+            <Link className="btn btn-ghost" href="/how-it-works">See how it works</Link>
           </div>
         </div>
         <PreviewCard />
@@ -64,7 +35,7 @@ export default function Landing() {
         </h2>
         <p className="sub" style={{ margin: "12px auto 0" }}>
           A great business can be a poor investment. Tearsheet surfaces what the price already
-          implies — and where the signals agree or conflict.
+          implies, and shows where the signals agree or conflict.
         </p>
       </section>
 
@@ -73,6 +44,9 @@ export default function Landing() {
         <div className="kicker">What it does</div>
         <h2>Built like a precision instrument.</h2>
         <FeatureCarousel />
+        <div style={{ marginTop: 22 }}>
+          <Link className="btn btn-ghost" href="/features">See all features →</Link>
+        </div>
       </section>
 
       {/* HOW IT WORKS / EVAL */}
@@ -83,9 +57,12 @@ export default function Landing() {
             <h2>It scores its own accuracy.</h2>
             <p className="sub">
               Most AI demos have no evaluation. Tearsheet ships a Python harness that grades factual
-              accuracy, citation validity, hallucinations, DCF correctness — and a hard{" "}
+              accuracy, citation validity, hallucinations, and DCF correctness, with a hard{" "}
               <span className="accent">no-advice</span> gate. One command, one summary line.
             </p>
+            <div style={{ marginTop: 18 }}>
+              <Link className="btn btn-ghost" href="/how-it-works">Read how it works →</Link>
+            </div>
           </div>
           <div className="codeblock">
             $ python eval/run_eval.py<br />
@@ -113,91 +90,17 @@ export default function Landing() {
         <h2>Good to know.</h2>
         <div className="faq">
           <Faq q="Is this financial advice?"
-            a="No. Tearsheet is a research tool. It shows model outputs with stated assumptions — never buy/sell/hold calls or price targets. That restraint is enforced in code and in the eval harness." />
+            a="No. Tearsheet is a research tool. It shows model outputs with stated assumptions, never buy, sell, or hold calls or price targets. That restraint is enforced in code and in the eval harness." />
           <Faq q="Where does the data come from?"
-            a="Free sources only — SEC EDGAR for fundamentals (real 10-K/20-F filings) and Yahoo Finance for market data, with an offline snapshot mode that always works. Toggle Live/Offline in the terminal." />
+            a="Free, public sources only: SEC EDGAR for fundamentals (real 10-K and 20-F filings) and Alpaca for market data, with an offline snapshot mode that always works. Toggle Live or Offline in the terminal." />
           <Faq q="Do I need an API key?"
-            a="No. The structural analysis — price, financials, valuation, DCF, the reasoning modules — needs no key. An optional Anthropic key upgrades the written thesis from a grounded template to live Claude reasoning." />
+            a="No. The structural analysis (price, financials, valuation, DCF, and the reasoning modules) needs no key. An optional Anthropic key upgrades the written thesis from a grounded template to live Claude reasoning." />
           <Faq q="How current is the data?"
-            a="Live mode is real-time-ish (end-of-day / delayed). The free tier is rate-limited, so when it's exhausted the app transparently falls back to a flagged snapshot instead of breaking." />
+            a="Live mode shows delayed, end-of-day prices. The free tier is rate limited, so when it is exhausted the app falls back to a clearly labelled snapshot instead of breaking." />
         </div>
       </section>
 
-      <footer className="lp-footer">
-        <div className="brand" style={{ fontSize: 17 }}>Tearsheet<span className="dot">.</span></div>
-        <div className="mono">
-          Generated from public sources · research tool, not financial advice · {new Date().getUTCFullYear()}
-        </div>
-      </footer>
-    </div>
-  );
-}
-
-function Feature({ icon, title, text, featured }: { icon: string; title: string; text: string; featured?: boolean }) {
-  return (
-    <div className={`feat-card ${featured ? "featured" : ""}`}>
-      <div className="ficon">{icon}</div>
-      <h3>{title}</h3>
-      <p>{text}</p>
-    </div>
-  );
-}
-
-const FEATURES = [
-  {
-    icon: "◆", title: "Grounded in data", featured: false,
-    text: "Numbers only from retrieved sources — never invented. Every claim ships a real source link and a retrieval timestamp.",
-  },
-  {
-    icon: "∿", title: "Transparent DCF + reverse-DCF", featured: true,
-    text: "Every assumption is visible: explicit WACC, growth fade, terminal value, a sensitivity grid — and what growth today's price implies.",
-  },
-  {
-    icon: "◷", title: "Reasons, not reports", featured: false,
-    text: "Falsifiable bull/bear points, a pre-mortem, the 'beats ≠ up' pattern around earnings, and a market/sector/stock-specific move breakdown.",
-  },
-];
-
-function FeatureCarousel() {
-  const [i, setI] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const n = FEATURES.length;
-
-  // Auto-advance, looping. Pauses on hover/focus and when the user prefers reduced motion.
-  useEffect(() => {
-    if (paused) return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    const id = setInterval(() => setI((p) => (p + 1) % n), 3800);
-    return () => clearInterval(id);
-  }, [paused, n]);
-
-  return (
-    <div
-      className="carousel"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocusCapture={() => setPaused(true)}
-      onBlurCapture={() => setPaused(false)}
-    >
-      <div className="carousel-track" style={{ transform: `translateX(-${i * 100}%)` }}>
-        {FEATURES.map((f, idx) => (
-          <div className="carousel-slide" key={idx} aria-hidden={idx !== i}>
-            <Feature icon={f.icon} title={f.title} text={f.text} featured={f.featured} />
-          </div>
-        ))}
-      </div>
-      <div className="carousel-dots" role="tablist" aria-label="features">
-        {FEATURES.map((f, idx) => (
-          <button
-            key={idx}
-            className={`carousel-dot ${idx === i ? "on" : ""}`}
-            role="tab"
-            aria-selected={idx === i}
-            aria-label={f.title}
-            onClick={() => setI(idx)}
-          />
-        ))}
-      </div>
+      <SiteFooter />
     </div>
   );
 }
@@ -212,7 +115,7 @@ function Faq({ q, a }: { q: string; a: string }) {
 }
 
 function PreviewCard() {
-  // Static, decorative preview (no API calls) — labelled illustrative.
+  // Static, decorative preview (no API calls), labelled illustrative.
   const pts = [22, 26, 24, 30, 28, 35, 33, 40, 38, 46, 44, 52];
   const w = 100, h = 60, min = Math.min(...pts), max = Math.max(...pts), span = max - min || 1;
   const path = pts
@@ -230,8 +133,8 @@ function PreviewCard() {
         <polyline points={path} fill="none" stroke="#2e9e54" strokeWidth="1.4" vectorEffect="non-scaling-stroke" />
       </svg>
       <div className="pv-grid">
-        <div><div className="k">P/E</div><div className="v">41.5×</div></div>
-        <div><div className="k">DCF upside</div><div className="v">−57%</div></div>
+        <div><div className="k">P/E</div><div className="v">41.5x</div></div>
+        <div><div className="k">DCF upside</div><div className="v">-57%</div></div>
         <div><div className="k">Implied g</div><div className="v">61%</div></div>
       </div>
     </div>

@@ -67,7 +67,10 @@ class _WithSnapshotFallback(DataProvider):
 
 def _build_live() -> DataProvider:
     if settings.data_provider == "hybrid":
-        return _WithSnapshotFallback(HybridProvider(), "SEC EDGAR + Yahoo Finance")
+        # Use the hybrid's own name (e.g. "SEC EDGAR + Alpaca") so the label reflects the actual
+        # configured market source instead of hard-coding a vendor.
+        hp = HybridProvider()
+        return _WithSnapshotFallback(hp, hp.name)
     if settings.data_provider == "edgar":
         return _WithSnapshotFallback(EdgarProvider(), "SEC EDGAR (filings)")
     if settings.data_provider == "free":

@@ -8,9 +8,11 @@ import {
 } from "@/components/panels";
 
 const DEFAULT = "NVDA";
-// Steer users toward covered, liquid US names (the backend is US-listed equities only).
-const SUGGESTED = ["NVDA", "MSFT", "AAPL", "GOOGL", "AMZN", "META"];
-// US ticker format: 1–5 letters, optional class suffix (e.g. BRK.B). Rejects ISINs, numbers,
+// Steer users toward covered, liquid US names (the backend is US-listed equities only). Only
+// names that return full data (price, P/E, market cap) from the live backend. GOOGL and META are
+// excluded because their multiples and market cap come back empty (share-class mapping).
+const SUGGESTED = ["NVDA", "MSFT", "AAPL", "AMZN", "TSLA", "JPM"];
+// US ticker format: 1-5 letters, optional class suffix (e.g. BRK.B). Rejects ISINs, numbers,
 // foreign formats (e.g. "7203.T", "VOD.L") before firing a doomed lookup.
 const US_TICKER = /^[A-Z]{1,5}(\.[A-Z])?$/;
 
@@ -21,7 +23,7 @@ export default function Home() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [recent, setRecent] = useState<string[]>([DEFAULT]);
   const [hint, setHint] = useState("");
-  // Retry a few times with backoff — covers Render free-tier cold starts (server waking ~30–60s).
+  // Retry a few times with backoff - covers Render free-tier cold starts (server waking ~30-60s).
   const health = useQuery({
     queryKey: ["health"],
     queryFn: api.health,
@@ -120,7 +122,7 @@ export default function Home() {
           />
         </form>
         <div className="subtle" style={{ fontSize: 11, marginTop: 6, lineHeight: 1.4 }}>
-          {hint || "US-listed stocks only — enter a ticker symbol like NVDA, MSFT, AAPL."}
+          {hint || "US-listed stocks only. Enter a ticker symbol like NVDA, MSFT, or AAPL."}
         </div>
         <div className="chips" style={{ marginTop: 8 }}>
           {SUGGESTED.map((s) => (
@@ -159,7 +161,7 @@ export default function Home() {
           {!samples.data?.tickers?.length && <span className="subtle" style={{ fontSize: 12 }}>none loaded</span>}
         </div>
         <div className="subtle" style={{ fontSize: 11, marginTop: 6, lineHeight: 1.4 }}>
-          Preloaded snapshots — always available, no API limits.
+          Preloaded snapshots, always available, no API limits.
         </div>
 
         <div className="status-line">
@@ -176,8 +178,8 @@ export default function Home() {
       <main className="main">
         {waking && (
           <div className="banner" style={{ marginBottom: 16 }}>
-            ⏳ Waking the server… The backend is on a free tier that sleeps when idle, so the first
-            load takes ~30–60s ({waitSecs}s). This only happens once — thanks for your patience.
+            ⏳ Waking the server. The backend is on a free tier that sleeps when idle, so the first
+            load takes about 30 to 60 seconds ({waitSecs}s). This only happens once. Thanks for your patience.
           </div>
         )}
         <Overview ticker={ticker} index={0} mode={mode} />
@@ -193,7 +195,7 @@ export default function Home() {
 
         <div className="footer">
           Generated from public sources · research tool, not financial advice · no buy/sell/hold, no price target<br />
-          {mode === "live" ? "Live data: SEC EDGAR (fundamentals) + Yahoo Finance (market)." : "Offline snapshot data."} · provenance traced per figure · {new Date().getUTCFullYear()} · Tearsheet
+          {mode === "live" ? "Live data: SEC EDGAR (fundamentals) plus Alpaca (market)." : "Offline snapshot data."} · provenance traced per figure · {new Date().getUTCFullYear()} · Tearsheet
         </div>
       </main>
     </div>
@@ -206,22 +208,22 @@ function dataBadge(d: any): { label: string; cls: string; note: string } {
   const warns: string[] = d.warnings ?? [];
   if (src.includes("snapshot")) {
     return { label: "● OFFLINE SNAPSHOT", cls: "snapshot",
-      note: "Recorded real data (point-in-time) — always available, not live." };
+      note: "Recorded real data (point-in-time), always available, not live." };
   }
   if (src.includes("fixture")) {
     return { label: "● OFFLINE SAMPLE", cls: "snapshot",
-      note: "Synthetic sample data — always available, not live." };
+      note: "Synthetic sample data, always available, not live." };
   }
   if (warns.some((w) => w.toLowerCase().includes("snapshot"))) {
     return { label: "● LIVE → SNAPSHOT", cls: "snapshot",
-      note: "Live unavailable (rate-limit/coverage) — showing a snapshot." };
+      note: "Live unavailable (rate limit or coverage), showing a snapshot." };
   }
   if (src.toLowerCase().includes("edgar")) {
     return { label: "● LIVE · SEC EDGAR", cls: "live",
-      note: "Real SEC filings (10-K). Fundamentals only — no price/market data." };
+      note: "Real SEC filings (10-K). Fundamentals only, no price or market data." };
   }
   if (src && src.trim()) {
-    return { label: "● LIVE", cls: "live", note: "Real-time-ish data from the live API." };
+    return { label: "● LIVE", cls: "live", note: "Delayed market data from the live API." };
   }
-  return { label: "● —", cls: "neutral", note: "" };
+  return { label: "● n/a", cls: "neutral", note: "" };
 }

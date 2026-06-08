@@ -10,8 +10,8 @@ const body = Inter({ subsets: ["latin"], variable: "--font-body", weight: ["400"
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", weight: ["400", "500", "700"] });
 
 export const metadata: Metadata = {
-  title: "Tearsheet — equity research terminal",
-  description: "An AI equity-research terminal. Research tool, not financial advice.",
+  title: "Tearsheet · equity research terminal",
+  description: "An equity research terminal. Research tool, not financial advice.",
 };
 
 // Without this the page renders at ~980px on phones and looks zoomed-out / cut off.
